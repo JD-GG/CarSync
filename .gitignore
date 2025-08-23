@@ -420,3 +420,6 @@ FodyWeavers.xsd
 # Angular
 angular/.angular/
 angular/package-lock.json
+
+# Nix
+flake.lock
