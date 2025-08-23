@@ -9,18 +9,21 @@
       "prefix": "app",
       "architect": {
         "build": {
-          "builder": "@angular-devkit/build-angular:browser",
+          "builder": "@angular-devkit/build-angular:application",
           "options": {
             "outputPath": "dist/dummy-angular-app",
             "index": "src/index.html",
-            "main": "src/main.ts",
-            "tsConfig": "tsconfig.json"
+            "browser": "src/main.ts",
+            "tsConfig": "tsconfig.json",
+            "polyfills": ["zone.js"],
+            "assets": ["src/favicon.ico", "src/assets"],
+            "scripts": []
           }
         },
         "serve": {
           "builder": "@angular-devkit/build-angular:dev-server",
           "options": {
-            
+            "buildTarget": "dummy-angular-app:build"
           }
         }
       }

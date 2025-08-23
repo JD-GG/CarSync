@@ -9,7 +9,7 @@ RUN npm run build --prod
 
 # Stage 2: Nginx
 FROM nginx:alpine
-COPY --from=build /usr/src/app/dist/dummy-angular-app /usr/share/nginx/html
+COPY --from=build /usr/src/app/dist/dummy-angular-app/browser /usr/share/nginx/html
 COPY nginx/nginx.conf /etc/nginx/conf.d/default.conf
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]
