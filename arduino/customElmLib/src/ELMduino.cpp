@@ -87,11 +87,11 @@ ELM327::~ELM327() {
 bool ELM327::initializeELM(const char& protocol,
                            const byte& dataTimeout)
 {
-    char command[10] = {'\0'};
+    char command[32] = {'\0'};  // enlarged buffer to avoid overflow
     connected = false;
 
-    sendCommand_Blocking(SET_ALL_TO_DEFAULTS);
-    delay(100);
+   // sendCommand_Blocking(SET_ALL_TO_DEFAULTS);
+    //delay(100);
 
     sendCommand_Blocking(RESET_ALL);
     delay(100);
@@ -99,25 +99,25 @@ bool ELM327::initializeELM(const char& protocol,
     sendCommand_Blocking(ECHO_OFF);
     delay(100);
 
+    sendCommand_Blocking(LINEFEEDS_OFF);
+    delay(100);
+
     sendCommand_Blocking(PRINTING_SPACES_OFF);
     delay(100);
 
-    sendCommand_Blocking(ALLOW_LONG_MESSAGES);
-    delay(100);
-
     // // Set data timeout
-    snprintf(command, sizeof(command), SET_TIMEOUT_TO_H_X_4MS, dataTimeout / 4);
-    sendCommand_Blocking(command);
-    delay(100);
+  //  sprintf(command, SET_TIMEOUT_TO_H_X_4MS, dataTimeout / 4);
+  //  sendCommand_Blocking(command);
+   // delay(100);
 
     // Automatic searching for protocol requires setting the protocol to AUTO and then
     // sending an OBD command to initiate the protocol search. The OBD command "0100"
     // requests a list of supported PIDs 0x00 - 0x20 and is guaranteed to work
-    if (protocol == '0')
+    if (protocol && strcmp(protocol, "0") == 0)  // safer string compare, no Arduino String
     {
         // Tell the ELM327 to do an auto protocol search. If a valid protocol is found, it will be saved to memory.
         // Some ELM clones may not have memory enabled and thus will perform the search every time.
-        snprintf(command, sizeof(command), SET_PROTOCOL_TO_AUTO_H_SAVE, protocol);
+        snprintf(command, sizeof(command), SET_PROTOCOL_TO_H_SAVE, protocol);
         if (sendCommand_Blocking(command) == ELM_SUCCESS)
         {
             if (strstr(payload, RESPONSE_OK) != NULL)
@@ -125,7 +125,7 @@ bool ELM327::initializeELM(const char& protocol,
                 // Protocol search can take a comparatively long time. Temporarily set
                 // the timeout value to 30 seconds, then restore the previous value.
                 uint16_t prevTimeout = timeout_ms;
-                timeout_ms = 30000;
+                timeout_ms = 6000;
 
                 int8_t state = sendCommand_Blocking("0100");
 
@@ -133,6 +133,7 @@ bool ELM327::initializeELM(const char& protocol,
                 {
                     timeout_ms = prevTimeout;
                     connected = true;
+					delay(1000);
                     return connected;
                 }
                 else if (state == ELM_BUFFER_OVERFLOW)
@@ -189,6 +190,7 @@ bool ELM327::initializeELM(const char& protocol,
 
     return connected;
 }
+
 
 /*
  void ELM327::formatQueryArray(uint8_t service, uint16_t pid, uint8_t num_responses)
