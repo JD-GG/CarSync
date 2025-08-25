@@ -7,7 +7,7 @@ BluetoothSerial SerialBT;
 
 ELM327 myELM327;
 uint32_t rpm = 0;
-const char btPass[] = "1234";
+const char btPass[] = "0000";
 
 void setup()
 {
@@ -18,7 +18,7 @@ void setup()
 
   DEBUG_PORT.begin(115200);
   SerialBT.setPin(btPass, 4);
-  ELM_PORT.begin("ArduHUD", true);
+  SerialBT.begin("ArduHUD", true, true);
   
   if (!ELM_PORT.connect("OBDII"))
   {
@@ -48,3 +48,4 @@ void loop()
   else if (myELM327.nb_rx_state != ELM_GETTING_MSG)
     myELM327.printError();
 }
+
