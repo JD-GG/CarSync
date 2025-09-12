@@ -424,3 +424,4 @@ angular/package-lock.json
 # Nix
 flake.lock
 arduino/secrets.h
+.DS_Store
