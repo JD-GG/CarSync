@@ -1,26 +1,26 @@
-#include "BluetoothSerial.h"
+#include <Arduino.h>
 #include "ELMduino.h"
+#include <../BLEClientSerial/BLEClientSerial.h>
 
-BluetoothSerial SerialBT;
-#define ELM_PORT   SerialBT
+BLEClientSerial BLESerial;
+
+
 #define DEBUG_PORT Serial
+#define ELM_PORT   BLESerial
 
 ELM327 myELM327;
+
+
 uint32_t rpm = 0;
-const char btPass[] = "0000";
+
 
 void setup()
 {
-#if LED_BUILTIN
-  pinMode(LED_BUILTIN, OUTPUT);
-  digitalWrite(LED_BUILTIN, LOW);
-#endif
 
   DEBUG_PORT.begin(115200);
-  SerialBT.setPin(btPass, 4);
-  SerialBT.begin("ArduHUD", true, true);
+  ELM_PORT.begin("VEEPEAK");
   
-  if (!ELM_PORT.connect("OBDII"))
+  if (!ELM_PORT.connect())
   {
     DEBUG_PORT.println("Couldn't connect to OBD scanner - Phase 1");
     while(1);
@@ -35,7 +35,6 @@ void setup()
   Serial.println("Connected to ELM327");
 }
 
-
 void loop()
 {
   float tempRPM = myELM327.rpm();
@@ -47,5 +46,5 @@ void loop()
   }
   else if (myELM327.nb_rx_state != ELM_GETTING_MSG)
     myELM327.printError();
-}
 
+}
