@@ -1,26 +1,13 @@
-// ==== Board-Auswahl ====
-#if defined(ESP32)
-  #include <WiFiMulti.h>
-  WiFiMulti wifiMulti;
-  #define DEVICE "ESP32"
-#elif defined(ESP8266)
-  #include <ESP8266WiFiMulti.h>
-  ESP8266WiFiMulti wifiMulti;
-  #define DEVICE "ESP8266"
-#endif
-
-// ==== InfluxDB ====
+#include <WiFiMulti.h>
 #include <InfluxDbClient.h>
-
-// ==== BLE / ELM327 ====
 #include <Arduino.h>
-#include "ELMduino.h"
+#include <ELMduino.h>
 #include <../BLEClientSerial/BLEClientSerial.h>
 #include <secrets.h>
 
+WiFiMulti wifiMulti;
 BLEClientSerial BLESerial;
 ELM327 myELM327;
-
 
 // ==== Zeitsync (für saubere Timestamps) ====
 #define TZ_INFO "CET-1CEST,M3.5.0/2,M10.5.0/3"
@@ -98,7 +85,6 @@ bool ensureInflux() {
 
 void setupInfluxPoint() {
   rpmPoint.clearTags();
-  rpmPoint.addTag("device", DEVICE);
   rpmPoint.addTag("source", "obd");
   // weitere Tags wie VIN, Fahrzeug, etc. könntest du hier hinzufügen
 }
