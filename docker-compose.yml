@@ -15,7 +15,7 @@ services:
 
   mariadb:
     image: mariadb:${MARIADB_VERSION}
-    container_name: mariadb
+    container_name: mariadbCS
     restart: always
     ports:
       - "${MARIADB_PORT}:3306"
@@ -28,6 +28,7 @@ services:
       - mariadb_data:/var/lib/mysql
 
   nginx:
+    container_name: nginxCS
     build:
       context: ./angular
       dockerfile: Dockerfile
