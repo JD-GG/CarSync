@@ -32,7 +32,6 @@ services:
     build:
       context: ./angular
       dockerfile: Dockerfile
-    container_name: nginx
     ports:
       - "${NGINX_PORT}:80"
     depends_on:
