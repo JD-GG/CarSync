@@ -16,7 +16,7 @@ app.use(bodyParser.json());
 
 const pool = mysql.createPool({
   port: port,
-  host: "mariadb",
+  host: "192.168.178.60",
   user: user,
   password: pw,
   database: database
