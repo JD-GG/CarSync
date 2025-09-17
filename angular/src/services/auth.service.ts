@@ -3,7 +3,7 @@ import { HttpClient } from '@angular/common/http';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
-  private apiUrl = 'http://backend:3000/api';
+  private apiUrl = '/api';  
 
   constructor(private http: HttpClient) {}
 
