@@ -2,6 +2,7 @@ services:
   influxdb:
     image: influxdb:${INFLUXDB_VERSION}
     container_name: influxdbCS
+    restart: unless-stopped
     ports:
       - "${INFLUXDB_PORT}:8086"
     volumes:
@@ -16,7 +17,7 @@ services:
   mariadb:
     image: mariadb:${MARIADB_VERSION}
     container_name: mariadbCS
-    restart: always
+    restart: unless-stopped
     ports:
       - "${MARIADB_PORT}:3306"
     environment:
@@ -29,6 +30,7 @@ services:
 
   nginx:
     container_name: nginxCS
+    restart: unless-stopped
     build:
       context: ./angular
       dockerfile: Dockerfile
@@ -41,6 +43,7 @@ services:
   backend:
     build: ./backend
     container_name: backendCS
+    restart: unless-stopped
     ports:
       - "${BACKEND_PORT}:3000"
     depends_on:
