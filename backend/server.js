@@ -49,4 +49,9 @@ app.post("/login", async (req, res) => {
   res.json({ message: "Login successful" });
 });
 
+// Simple GET endpoint for testing
+app.get('/ping', (req, res) => {
+  res.json({ message: 'pong' });
+});
+
 app.listen(3000, () => console.log("API running on port 3000"));
