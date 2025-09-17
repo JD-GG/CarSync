@@ -7,14 +7,19 @@
 #include "secrets.h"
 #include "../BLEClientSerial/BLEClientSerial.h"
 
-
 uint8_t myMac[] = {0xDE, 0xAD, 0xC0, 0xDE, 0x00, 0x00}; // Will get changed based on the ESP; myMac[5] can be used as identifier
 
 WiFiMulti wifiMulti;
 BLEClientSerial BLESerial;
 ELM327 myELM327;
+TinyGPSPlus gps;
 
-// Zeitsync (für saubere Timestamps ?
+// Die serielle Verbindung zum GPS Modul
+// ESP PIN 4 --> TX
+// ESP PIN 5 --> RX
+SoftwareSerial ss(4, 5);
+
+// Zeitsync (für saubere Timestamps
 #define TZ_INFO "CET-1CEST,M3.5.0/2,M10.5.0/3"
 
 // Influx-Client + Measurement-Point
@@ -102,6 +107,10 @@ void setup() {
   Serial.begin(115200);
   delay(300);
 
+  // GPS setup
+  ss.begin(9600);
+
+  // Network setup
   setupWiFi();
   connectWiFi();
 
@@ -132,6 +141,22 @@ void writeRPMToInflux(uint32_t rpm) {
   if (!client.writePoint(rpmPoint)) {
     Serial.print("Influx write failed: ");
     Serial.println(client.getLastErrorMessage());
+  }
+}
+
+void readGPS() {
+  while (ss.available() > 0) {
+    gps.encode(ss.read());
+    if (gps.location.isUpdated()) {
+      // Breitengrad mit 4 Nachkommastellen
+      Serial.print("Breitengrad= ");
+      Serial.print(gps.location.lat(), 4);
+      // Längengrad mit 4 Nachkommastellen
+      Serial.print(" Längengrad= ");
+      Serial.println(gps.location.lng(), 4);
+      Serial.print("Km/h=");
+      Serial.println(gps.speed.kmph());
+    }
   }
 }
 
@@ -176,6 +201,9 @@ void loop() {
       elmReady = false;
     }
   }
+
+  // === GPS Daten lesen ===
+  readGPS();
 
   // Optional: kurze Pause, damit die Loop nicht 100% CPU zieht
   delay(5);
