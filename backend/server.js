@@ -6,6 +6,7 @@ import dotenv from "dotenv";
 
 // Load environment variables
 dotenv.config();
+const port = process.env.MYSQL_PORT;
 const database = process.env.MYSQL_DATABASE;
 const user = process.env.MYSQL_USER;
 const pw = process.env.MYSQL_PASSWORD;
@@ -14,6 +15,7 @@ const app = express();
 app.use(bodyParser.json());
 
 const pool = mysql.createPool({
+  port: port,
   host: "mariadb",
   user: user,
   password: pw,

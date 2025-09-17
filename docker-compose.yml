@@ -18,6 +18,8 @@ services:
     image: mariadb:${MARIADB_VERSION}
     container_name: mariadbCS
     restart: unless-stopped
+    ports:
+      - "${MARIADB_PORT}:3306"
     environment:
       - MYSQL_ROOT_PASSWORD=${MARIADB_ROOT_PASSWORD}
       - MYSQL_DATABASE=${MARIADB_DATABASE}
@@ -45,6 +47,7 @@ services:
     ports:
       - "${BACKEND_PORT}:3000"
     environment:
+      - MYSQL_PORT=${MARIADB_PORT}
       - MYSQL_DATABASE=${MARIADB_DATABASE}
       - MYSQL_USER=${MARIADB_USER}
       - MYSQL_PASSWORD=${MARIADB_PASSWORD}
