@@ -6,7 +6,7 @@ import dotenv from "dotenv";
 
 // Load environment variables
 dotenv.config();
-const host = process.env.SERVER_IP;
+const host = process.env.MYSQL_HOST;
 const port = process.env.MYSQL_PORT;
 const database = process.env.MYSQL_DATABASE;
 const user = process.env.MYSQL_USER;
