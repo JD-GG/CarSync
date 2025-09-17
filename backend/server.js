@@ -2,15 +2,20 @@ import express from "express";
 import mysql from "mysql2/promise";
 import bcrypt from "bcrypt";
 import bodyParser from "body-parser";
+require("dotenv").config();
+const port = process.env.MARIADB_PORT;
+const user = process.env.MARIADB_USER;
+const pw = process.env.MARIADB_PASSWORD;
+const database = process.env.MARIADB_DATABASE;
 
 const app = express();
 app.use(bodyParser.json());
 
 const pool = mysql.createPool({
-  host: "mariadb",     // Docker-Compose-Service-Name!
-  user: "myuser",
-  password: "mypassword",
-  database: "mydb"
+  host: port,     
+  user: user,
+  password: pw,
+  database: database
 });
 
 // Registrierung
