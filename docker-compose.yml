@@ -44,6 +44,10 @@ services:
     restart: unless-stopped
     ports:
       - "${BACKEND_PORT}:3000"
+    environment:
+      - MYSQL_DATABASE=${MARIADB_DATABASE}
+      - MYSQL_USER=${MARIADB_USER}
+      - MYSQL_PASSWORD=${MARIADB_PASSWORD}
     depends_on:
       - mariadb
     
