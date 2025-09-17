@@ -15,7 +15,8 @@ const app = express();
 app.use(bodyParser.json());
 
 const pool = mysql.createPool({
-  host: port,     
+  host: "mariadb",
+  port: port,
   user: user,
   password: pw,
   database: database
@@ -54,4 +55,20 @@ app.get('/ping', (req, res) => {
   res.json({ message: 'pong' });
 });
 
-app.listen(3000, () => console.log("API running on port 3000"));
+// Create table if it doesn't exist
+async function ensureTable() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS benutzer (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      username VARCHAR(255) NOT NULL UNIQUE,
+      password VARCHAR(255) NOT NULL
+    )
+  `);
+}
+
+ensureTable().then(() => {
+  app.listen(3000, () => console.log("API running on port 3000"));
+}).catch(err => {
+  console.error("Failed to ensure table:", err);
+  process.exit(1);
+});
