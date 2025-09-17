@@ -2,7 +2,10 @@ import express from "express";
 import mysql from "mysql2/promise";
 import bcrypt from "bcrypt";
 import bodyParser from "body-parser";
-require("dotenv").config();
+import dotenv from "dotenv";
+
+// Load environment variables
+dotenv.config();
 const port = process.env.MARIADB_PORT;
 const user = process.env.MARIADB_USER;
 const pw = process.env.MARIADB_PASSWORD;
