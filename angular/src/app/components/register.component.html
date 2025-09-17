@@ -2,6 +2,13 @@
   <h2>Registrieren</h2>
   <input [(ngModel)]="username" placeholder="Username">
   <input [(ngModel)]="password" type="password" placeholder="Password">
+  <input 
+  [value]="mac" 
+  (input)="formatMac($event)" 
+  placeholder="__:__:__:__:__:__" 
+  maxlength="17"
+  />
+
   <button (click)="onRegister()">Registrieren</button>
   <p>{{ message }}</p>
 </div>

@@ -20,12 +20,17 @@ const pool = mysql.createPool({
 
 // Registrierung
 app.post("/register", async (req, res) => {
-  const { username, password } = req.body;
-  if (!username || !password) return res.status(400).json({ error: "Missing data" });
+  const { username, password, mac } = req.body;
+  if (!username || !password || !mac) return res.status(400).json({ error: "Missing data" });
 
   const hash = await bcrypt.hash(password, 10);
+  const macPrefix = "0x";
+  const macHex = macPrefix + mac;
+  const macInt = parseInt(macHex, 16);
+  
+
   try {
-    await pool.query("INSERT INTO benutzer (username, password) VALUES (?, ?)", [username, hash]);
+    await pool.query("INSERT INTO benutzer (username, password, macInt) VALUES (?, ?, ?)", [username, hash, macInt]);
     res.json({ message: "User created" });
   } catch (err) {
     if (err.code === "ER_DUP_ENTRY") return res.status(400).json({ error: "Username already exists" });
@@ -47,3 +52,6 @@ app.post("/login", async (req, res) => {
 });
 
 app.listen(3000, () => console.log("API running on port 3000"));
+
+
+

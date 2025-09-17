@@ -13,8 +13,8 @@ export class AuthService {
     return this.http.post(`${this.apiUrl}/login`, { username, password });
   }
 
-  register(username: string, password: string) {
-    return this.http.post(`${this.apiUrl}/register`, { username, password });
+  register(username: string, password: string, mac: string,) {
+    return this.http.post(`${this.apiUrl}/register`, { username, password, mac });
   }
 }
 
