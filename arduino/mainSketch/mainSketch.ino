@@ -61,8 +61,8 @@ void connectWiFi() {
 
 bool connectBLE() {
   if (bleConnected) return true;
-  Serial.println("Verbinde BLE zu OBD (VEEPEAK)...");
-  BLESerial.begin("VEEPEAK"); // Name deines Adapters
+  Serial.println("Verbinde BLE zu OBD");
+  BLESerial.begin(OBD_NAME); // Name deines Adapters
   bleConnected = BLESerial.connect();
   if (bleConnected) {
     Serial.println("BLE verbunden.");
