@@ -6,6 +6,7 @@ import dotenv from "dotenv";
 
 // Load environment variables
 dotenv.config();
+const host = process.env.SERVER_IP;
 const port = process.env.MYSQL_PORT;
 const database = process.env.MYSQL_DATABASE;
 const user = process.env.MYSQL_USER;
@@ -16,7 +17,7 @@ app.use(bodyParser.json());
 
 const pool = mysql.createPool({
   port: port,
-  host: "192.168.178.60",
+  host: host,
   user: user,
   password: pw,
   database: database
