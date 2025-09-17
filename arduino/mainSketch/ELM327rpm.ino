@@ -4,15 +4,11 @@
 
 BLEClientSerial BLESerial;
 
-
 #define DEBUG_PORT Serial
 #define ELM_PORT   BLESerial
 
 ELM327 myELM327;
-
-
 uint32_t rpm = 0;
-
 
 void setup()
 {

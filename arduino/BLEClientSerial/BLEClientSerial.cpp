@@ -5,7 +5,7 @@ static boolean connected = false;
 static boolean doScan = false;
 static std::string staticBuffer = "";
 
-std::string targetDeviceName = "VEEPEAK"; // Target BLE device
+std::string targetDeviceName = OBD_NAME;
 BLEUUID serviceUUID_FFF0("FFF0"); 
 BLEUUID rxUUID("FFF1");
 BLEUUID txUUID("FFF2");
