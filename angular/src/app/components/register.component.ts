@@ -1,6 +1,7 @@
 import { Component } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
+import { RouterModule } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
 import { NgxMaskDirective } from 'ngx-mask';
 
@@ -8,7 +9,7 @@ import { NgxMaskDirective } from 'ngx-mask';
 @Component({
   selector: 'app-register',
   standalone: true,
-  imports: [FormsModule, CommonModule, NgxMaskDirective],
+  imports: [FormsModule, CommonModule, RouterModule, NgxMaskDirective],
   templateUrl: './register.component.html'
 })
 

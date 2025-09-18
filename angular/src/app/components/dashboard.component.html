@@ -1,0 +1,71 @@
+<div class="container px-4 px-md-5 py-5 w-100">
+  <div class="glass-card dashboard-card rounded-4 p-4 p-md-5">
+    <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 mb-4">
+      <div>
+        <h1 class="display-5 fw-semibold mb-2">Willkommen {{ username }}!</h1>
+        <p class="subtitle mb-0">CarSync Dashboard · Zeitachse in UTC</p>
+      </div>
+      <div class="text-md-end">
+        <span class="badge rounded-pill bg-primary-subtle text-light px-3 py-2">
+          Motorüberwachung aktiv
+        </span>
+      </div>
+    </div>
+
+    <div class="card bg-transparent border-0">
+      <div class="card-body p-0">
+        <div class="d-flex justify-content-between align-items-end mb-3">
+          <div>
+            <h5 class="text-uppercase small text-light opacity-75 mb-1">Aktuelle Drehzahl</h5>
+            <h2 class="fw-semibold">{{ rpmData[rpmData.length - 1] | number:'1.0-0' }} RPM</h2>
+          </div>
+          <div class="text-end subtitle">
+            0 – 7.000 RPM · Zeit in UTC
+          </div>
+        </div>
+
+        <div class="chart-wrapper">
+          <svg [attr.viewBox]="viewBox" preserveAspectRatio="none" class="w-100 h-100" style="overflow: visible;">
+            <defs>
+              <linearGradient id="rpmGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#4dabff" stop-opacity="0.45"></stop>
+                <stop offset="100%" stop-color="#4dabff" stop-opacity="0"></stop>
+              </linearGradient>
+            </defs>
+
+            <rect class="chart-bg" x="0" y="0" [attr.width]="chartWidth" [attr.height]="chartHeight"></rect>
+
+            <g *ngFor="let tick of yTicks">
+              <line class="chart-grid-line" x1="0" [attr.y1]="valueToY(tick)" [attr.x2]="chartWidth" [attr.y2]="valueToY(tick)"></line>
+              <text class="tick-label" x="-10" [attr.y]="valueToY(tick) - 4" text-anchor="end">{{ tick | number:'1.0-0' }}</text>
+            </g>
+
+            <g *ngFor="let label of timeLabels; let idx = index">
+              <line class="chart-grid-line" [attr.x1]="(chartWidth / (timeLabels.length - 1)) * idx"
+                    [attr.y1]="0"
+                    [attr.x2]="(chartWidth / (timeLabels.length - 1)) * idx"
+                    [attr.y2]="chartHeight"></line>
+              <text class="tick-label" [attr.x]="(chartWidth / (timeLabels.length - 1)) * idx"
+                    [attr.y]="chartHeight + 18" text-anchor="middle">{{ label }}</text>
+            </g>
+
+            <line class="chart-axis" x1="0" [attr.y1]="chartHeight" [attr.x2]="chartWidth" [attr.y2]="chartHeight"></line>
+            <line class="chart-axis" x1="0" y1="0" x2="0" [attr.y2]="chartHeight"></line>
+
+            <path class="chart-shadow" [attr.d]="chartAreaPath"></path>
+            <path class="chart-line" [attr.d]="chartPath"></path>
+
+            <g *ngFor="let value of rpmData; let idx = index">
+              <circle [attr.cx]="(chartWidth / Math.max(1, rpmData.length - 1)) * idx"
+                      [attr.cy]="valueToY(value)"
+                      r="6"
+                      fill="#4dabff"
+                      stroke="#0f1a2b"
+                      stroke-width="2"></circle>
+            </g>
+          </svg>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

@@ -3,6 +3,7 @@ import mysql from "mysql2/promise";
 import bcrypt from "bcrypt";
 import bodyParser from "body-parser";
 import dotenv from "dotenv";
+import jwt from "jsonwebtoken";
 
 // Load environment variables
 dotenv.config();
@@ -11,6 +12,11 @@ const port = process.env.MYSQL_PORT;
 const database = process.env.MYSQL_DATABASE;
 const user = process.env.MYSQL_USER;
 const pw = process.env.MYSQL_PASSWORD;
+const jwtSecret = process.env.JWT_SECRET;
+
+if (!jwtSecret) {
+  throw new Error("JWT_SECRET environment variable is required");
+}
 
 const app = express();
 app.use(bodyParser.json());
@@ -59,7 +65,9 @@ app.post("/login", async (req, res) => {
   const valid = await bcrypt.compare(password, rows[0].password);
   if (!valid) return res.status(400).json({ error: "Invalid credentials" });
 
-  res.json({ message: "Login successful" });
+  const token = jwt.sign({ id: rows[0].id, username: rows[0].username }, jwtSecret, { expiresIn: "1h" });
+
+  res.json({ message: "Login successful", token });
 });
 
 // Simple GET endpoint for testing

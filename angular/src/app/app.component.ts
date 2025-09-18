@@ -1,5 +1,6 @@
 import { Component } from '@angular/core';
 import { RouterModule } from '@angular/router';
+import { AuthService } from '../services/auth.service';
 
 @Component({
   selector: 'app-root',
@@ -11,9 +12,10 @@ import { RouterModule } from '@angular/router';
         <div class="container px-4 px-md-5">
           <nav class="navbar navbar-expand-md navbar-dark glass-card rounded-4 px-4 py-3">
             <a class="navbar-brand fw-semibold" routerLink="/">CarSync</a>
-            <div class="ms-auto d-flex gap-2">
-              <a class="btn btn-outline-light" routerLink="/login" routerLinkActive="active-link" [routerLinkActiveOptions]="{ exact: true }">Login</a>
-              <a class="btn btn-primary" routerLink="/register" routerLinkActive="active-link">Register</a>
+            <div class="ms-auto d-flex flex-wrap gap-2">
+              <a *ngIf="isLoggedIn()" class="btn btn-outline-light" routerLink="/dashboard" routerLinkActive="active-link">Dashboard</a>
+              <a *ngIf="!isLoggedIn()" class="btn btn-outline-light" routerLink="/login" routerLinkActive="active-link" [routerLinkActiveOptions]="{ exact: true }">Login</a>
+              <a *ngIf="!isLoggedIn()" class="btn btn-primary" routerLink="/register" routerLinkActive="active-link">Register</a>
             </div>
           </nav>
         </div>
@@ -39,4 +41,10 @@ import { RouterModule } from '@angular/router';
     }
   `]
 })
-export class AppComponent {}
+export class AppComponent {
+  constructor(private auth: AuthService) {}
+
+  isLoggedIn(): boolean {
+    return this.auth.isAuthenticated();
+  }
+}

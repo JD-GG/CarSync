@@ -49,6 +49,11 @@
       </button>
     </form>
 
+    <p class="subtitle text-center mt-4 mb-0">
+      Schon registriert?
+      <a routerLink="/login" class="link-primary">Zum Login</a>
+    </p>
+
     <div *ngIf="message" class="alert mt-4 mb-0" [ngClass]="message.includes('erfolgreich') ? 'alert-success' : 'alert-warning'">
       {{ message }}
     </div>

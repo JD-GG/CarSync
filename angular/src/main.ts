@@ -8,10 +8,13 @@ import { provideNgxMask } from 'ngx-mask';
 import { AppComponent } from './app/app.component';
 import { LoginComponent } from './app/components/login.component';
 import { RegisterComponent } from './app/components/register.component';
+import { DashboardComponent } from './app/components/dashboard.component';
+import { authGuard } from './app/guards/auth.guard';
 
 const routes: Routes = [
   { path: 'login', component: LoginComponent },
   { path: 'register', component: RegisterComponent },
+  { path: 'dashboard', component: DashboardComponent, canActivate: [authGuard] },
   { path: '', redirectTo: 'login', pathMatch: 'full' }
 ];
 
