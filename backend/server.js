@@ -23,10 +23,14 @@ const pool = mysql.createPool({
   database: database
 });
 
+const containsForbiddenCharacter = (value) => typeof value === "string" && value.includes(";");
+const hasUnsafeInput = (...values) => values.some(containsForbiddenCharacter);
+
 // Registrierung
 app.post("/register", async (req, res) => {
   const { username, password, mac } = req.body;
   if (!username || !password || !mac) return res.status(400).json({ error: "Missing data" });
+  if (hasUnsafeInput(username, password, mac)) return res.status(400).json({ error: "Invalid characters in input" });
 
   const hash = await bcrypt.hash(password, 10);
   const macPrefix = "0x";
@@ -46,6 +50,8 @@ app.post("/register", async (req, res) => {
 // Login
 app.post("/login", async (req, res) => {
   const { username, password } = req.body;
+  if (!username || !password) return res.status(400).json({ error: "Missing data" });
+  if (hasUnsafeInput(username, password)) return res.status(400).json({ error: "Invalid characters in input" });
   const [rows] = await pool.query("SELECT * FROM benutzer WHERE username=?", [username]);
 
   if (rows.length === 0) return res.status(400).json({ error: "Invalid credentials" });
