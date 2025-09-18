@@ -1,8 +1,56 @@
-<div>
-  <h2>Registrieren</h2>
-  <input [(ngModel)]="username" placeholder="Username">
-  <input [(ngModel)]="password" type="password" placeholder="Password">
-  <input [(ngModel)]="mac" [dropSpecialCharacters]="true" mask="XX:XX:XX:XX:XX:XX" placeholder="Device MAC">
-  <button (click)="onRegister()">Registrieren</button>
-  <p>{{ message }}</p>
+<div class="auth-shell w-100 px-3">
+  <div class="glass-card rounded-4 p-4 p-md-5 mx-auto">
+    <div class="text-center mb-4">
+      <h2 class="fw-semibold mb-1">Account erstellen</h2>
+      <p class="subtitle mb-0">Registriere dein Gerät und starte direkt durch</p>
+    </div>
+
+    <form (ngSubmit)="onRegister()" class="d-flex flex-column gap-3">
+      <div>
+        <label for="register-username" class="form-label text-uppercase small">Username</label>
+        <input
+          id="register-username"
+          name="username"
+          class="form-control form-control-lg"
+          [(ngModel)]="username"
+          placeholder="z. B. max.mustermann"
+          required>
+      </div>
+
+      <div>
+        <label for="register-password" class="form-label text-uppercase small">Passwort</label>
+        <input
+          id="register-password"
+          name="password"
+          type="password"
+          class="form-control form-control-lg"
+          [(ngModel)]="password"
+          placeholder="Mindestens 8 Zeichen"
+          minlength="8"
+          required>
+      </div>
+
+      <div>
+        <label for="register-mac" class="form-label text-uppercase small">Device MAC</label>
+        <input
+          id="register-mac"
+          name="mac"
+          class="form-control form-control-lg"
+          [(ngModel)]="mac"
+          [dropSpecialCharacters]="true"
+          mask="XX:XX:XX:XX:XX:XX"
+          placeholder="AA:BB:CC:DD:EE:FF"
+          required>
+        <div class="form-text text-light opacity-50 mt-2">Verwende das Format AA:BB:CC:DD:EE:FF</div>
+      </div>
+
+      <button type="submit" class="btn btn-primary btn-lg w-100 mt-2">
+        Registrieren
+      </button>
+    </form>
+
+    <div *ngIf="message" class="alert mt-4 mb-0" [ngClass]="message.includes('erfolgreich') ? 'alert-success' : 'alert-warning'">
+      {{ message }}
+    </div>
+  </div>
 </div>

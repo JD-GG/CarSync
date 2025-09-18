@@ -1,0 +1,65 @@
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background: radial-gradient(circle at top, #1a1f2b 0%, #0d111a 40%, #05070d 100%);
+  color: #f8f9fa;
+  font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+a {
+  color: #66c1ff;
+}
+
+a:hover,
+a:focus {
+  color: #8ad7ff;
+}
+
+.main-shell {
+  min-height: 100vh;
+}
+
+.auth-shell {
+  max-width: 520px;
+  margin: 0 auto;
+}
+
+.glass-card {
+  background: rgba(17, 25, 40, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 1.25rem 3rem rgba(15, 16, 28, 0.45);
+  backdrop-filter: blur(18px);
+}
+
+.glass-card .form-control {
+  background-color: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: #f8f9fa;
+  padding: 1rem 1.25rem;
+  font-size: 1.05rem;
+}
+
+.glass-card .form-control:focus {
+  box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+.glass-card .form-control::placeholder {
+  color: rgba(248, 249, 250, 0.6);
+}
+
+.glass-card .btn {
+  padding: 0.85rem 1.5rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.subtitle {
+  color: rgba(248, 249, 250, 0.7);
+}

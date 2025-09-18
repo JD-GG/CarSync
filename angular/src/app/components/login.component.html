@@ -1,7 +1,41 @@
-<div class="login-box">
-  <h2>Login</h2>
-  <input [(ngModel)]="username" placeholder="Username">
-  <input [(ngModel)]="password" type="password" placeholder="Password">
-  <button (click)="onLogin()">Login</button>
-  <p>{{ message }}</p>
+<div class="auth-shell w-100 px-3">
+  <div class="glass-card rounded-4 p-4 p-md-5 mx-auto">
+    <div class="text-center mb-4">
+      <h2 class="fw-semibold mb-1">Willkommen zurück</h2>
+      <p class="subtitle mb-0">Melde dich an, um deine Fahrzeuge zu verwalten</p>
+    </div>
+
+    <form (ngSubmit)="onLogin()" class="d-flex flex-column gap-3">
+      <div>
+        <label for="login-username" class="form-label text-uppercase small">Username</label>
+        <input
+          id="login-username"
+          name="username"
+          class="form-control form-control-lg"
+          [(ngModel)]="username"
+          placeholder="z. B. max.mustermann"
+          required>
+      </div>
+
+      <div>
+        <label for="login-password" class="form-label text-uppercase small">Passwort</label>
+        <input
+          id="login-password"
+          name="password"
+          type="password"
+          class="form-control form-control-lg"
+          [(ngModel)]="password"
+          placeholder="••••••••"
+          required>
+      </div>
+
+      <button type="submit" class="btn btn-primary btn-lg w-100 mt-2">
+        Login
+      </button>
+    </form>
+
+    <div *ngIf="message" class="alert mt-4 mb-0" [ngClass]="message.includes('erfolgreich') ? 'alert-success' : 'alert-warning'">
+      {{ message }}
+    </div>
+  </div>
 </div>

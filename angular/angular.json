@@ -17,7 +17,13 @@
             "tsConfig": "tsconfig.json",
             "polyfills": ["zone.js"],
             "assets": ["src/favicon.ico", "src/assets"],
-            "scripts": []
+            "styles": [
+              "./node_modules/bootstrap/dist/css/bootstrap.min.css",
+              "src/styles.css"
+            ],
+            "scripts": [
+              "./node_modules/bootstrap/dist/js/bootstrap.bundle.min.js"
+            ]
           }
         },
         "serve": {

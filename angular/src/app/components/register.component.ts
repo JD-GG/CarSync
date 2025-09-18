@@ -4,6 +4,7 @@ import { CommonModule } from '@angular/common';
 import { AuthService } from '../../services/auth.service';
 import { NgxMaskDirective } from 'ngx-mask';
 
+
 @Component({
   selector: 'app-register',
   standalone: true,
