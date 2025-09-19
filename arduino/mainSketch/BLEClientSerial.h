@@ -7,6 +7,7 @@
 #include <BLEUtils.h>
 #include <BLEScan.h>
 #include <BLEAdvertisedDevice.h>
+#include "secrets.h"
 
 class BLEClientSerial: public Stream
 {

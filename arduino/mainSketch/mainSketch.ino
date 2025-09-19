@@ -1,15 +1,57 @@
-#include <WiFiMulti.h>
+#include <WiFi.h>
+#include <WiFiClientSecure.h>
 #include <InfluxDbClient.h>
 #include <Arduino.h>
 #include <ELMduino.h>
 #include <SoftwareSerial.h>
 #include <TinyGPS++.h>
 #include "secrets.h"
-#include "../BLEClientSerial/BLEClientSerial.h"
+#include "BLEClientSerial.h"
 
-uint8_t myMac[] = {0xDE, 0xAD, 0xC0, 0xDE, 0x00, 0x00}; // Will get changed based on the ESP; myMac[5] can be used as identifier
+const char* ssid = WIFI_SSID;
+const char* password = WIFI_PASSWORD;
+uint64_t macInt = ESP.getEfuseMac();
+uint32_t rpm = 0;
+float latitude = 0.0;
+float longitude = 0.0; 
+float kmh = 0.0;
 
-WiFiMulti wifiMulti;
+// Server certificate in PEM format, placed in the program (flash) memory to save RAM
+// Neccessary for HTTPS connection validation
+const char ServerCert[] PROGMEM =  R"EOF(
+"-----BEGIN CERTIFICATE-----
+"MIIFazCCA1OgAwIBAgIRAIIQz7DSQONZRGPgu2OCiwAwDQYJKoZIhvcNAQELBQAw
+"TzELMAkGA1UEBhMCVVMxKTAnBgNVBAoTIEludGVybmV0IFNlY3VyaXR5IFJlc2Vh
+"cmNoIEdyb3VwMRUwEwYDVQQDEwxJU1JHIFJvb3QgWDEwHhcNMTUwNjA0MTEwNDM4
+"WhcNMzUwNjA0MTEwNDM4WjBPMQswCQYDVQQGEwJVUzEpMCcGA1UEChMgSW50ZXJu
+"ZXQgU2VjdXJpdHkgUmVzZWFyY2ggR3JvdXAxFTATBgNVBAMTDElTUkcgUm9vdCBY
+"MTCCAiIwDQYJKoZIhvcNAQEBBQADggIPADCCAgoCggIBAK3oJHP0FDfzm54rVygc
+"h77ct984kIxuPOZXoHj3dcKi/vVqbvYATyjb3miGbESTtrFj/RQSa78f0uoxmyF+
+"0TM8ukj13Xnfs7j/EvEhmkvBioZxaUpmZmyPfjxwv60pIgbz5MDmgK7iS4+3mX6U
+"A5/TR5d8mUgjU+g4rk8Kb4Mu0UlXjIB0ttov0DiNewNwIRt18jA8+o+u3dpjq+sW
+"T8KOEUt+zwvo/7V3LvSye0rgTBIlDHCNAymg4VMk7BPZ7hm/ELNKjD+Jo2FR3qyH
+"B5T0Y3HsLuJvW5iB4YlcNHlsdu87kGJ55tukmi8mxdAQ4Q7e2RCOFvu396j3x+UC
+"B5iPNgiV5+I3lg02dZ77DnKxHZu8A/lJBdiB3QW0KtZB6awBdpUKD9jf1b0SHzUv
+"KBds0pjBqAlkd25HN7rOrFleaJ1/ctaJxQZBKT5ZPt0m9STJEadao0xAH0ahmbWn
+"OlFuhjuefXKnEgV4We0+UXgVCwOPjdAvBbI+e0ocS3MFEvzG6uBQE3xDk3SzynTn
+"jh8BCNAw1FtxNrQHusEwMFxIt4I7mKZ9YIqioymCzLq9gwQbooMDQaHWBfEbwrbw
+"qHyGO0aoSCqI3Haadr8faqU9GY/rOPNk3sgrDQoo//fb4hVC1CLQJ13hef4Y53CI
+"rU7m2Ys6xt0nUW7/vGT1M0NPAgMBAAGjQjBAMA4GA1UdDwEB/wQEAwIBBjAPBgNV
+"HRMBAf8EBTADAQH/MB0GA1UdDgQWBBR5tFnme7bl5AFzgAiIyBpY9umbbjANBgkq
+"hkiG9w0BAQsFAAOCAgEAVR9YqbyyqFDQDLHYGmkgJykIrGF1XIpu+ILlaS/V9lZL
+"ubhzEFnTIZd+50xx+7LSYK05qAvqFyFWhfFQDlnrzuBZ6brJFe+GnY+EgPbk6ZGQ
+"3BebYhtF8GaV0nxvwuo77x/Py9auJ/GpsMiu/X1+mvoiBOv/2X/qkSsisRcOj/KK
+"NFtY2PwByVS5uCbMiogziUwthDyC3+6WVwW6LLv3xLfHTjuCvjHIInNzktHCgKQ5
+"ORAzI4JMPJ+GslWYHb4phowim57iaztXOoJwTdwJx4nLCgdNbOhdjsnvzqvHu7Ur
+"TkXWStAmzOVyyghqpZXjFaH3pO3JLF+l+/+sKAIuvtd7u+Nxe5AW0wdeRlN8NwdC
+"jNPElpzVmbUq4JUagEiuTDkHzsxHpFKVK7q4+63SM1N95R1NbdWhscdCb+ZAJzVc
+"oyi3B43njTOQ5yOf+1CceWxG1bQVs5ZufpsMljq4Ui0/1lvh+wjChP4kqKOJ2qxq
+"4RgqsahDYVvTH9w7jXbyLeiNdd8XM2w9U/t7y0Ff/9yi0GE44Za4rF2LN9d11TPA
+"mRGunUHBcnWEvgJBQl9nJEiU0Zsnvgc/ubhPgXRR4Xq37Z0j4r7g1SgEEzwxA57d
+"emyPxgcYxn/eR44/KJ4EBs+lVDR3veyJm+kXQ99b21/+jh5Xos1AnX5iItreGCc=
+"-----END CERTIFICATE-----";
+)EOF";
+
 BLEClientSerial BLESerial;
 ELM327 myELM327;
 TinyGPSPlus gps;
@@ -23,7 +65,7 @@ SoftwareSerial ss(4, 5);
 #define TZ_INFO "CET-1CEST,M3.5.0/2,M10.5.0/3"
 
 // Influx-Client + Measurement-Point
-InfluxDBClient client(INFLUXDB_URL, INFLUXDB_ORG, INFLUXDB_BUCKET, INFLUXDB_TOKEN);
+InfluxDBClient client(INFLUXDB_URL, INFLUXDB_ORG, INFLUXDB_BUCKET, INFLUXDB_TOKEN, ServerCert);
 Point rpmPoint("rpm"); // measurement name
 
 // Intervall-Einstellungen
@@ -41,22 +83,21 @@ uint32_t lastELMTryMs   = 0;
 bool bleConnected  = false;
 bool elmReady      = false;
 
-void setupWiFi() {
-  WiFi.mode(WIFI_STA);
-  wifiMulti.addAP(WIFI_SSID, WIFI_PASSWORD);
-}
-
+// Connect to Wi-Fi with retries
 void connectWiFi() {
-  if (WiFi.status() == WL_CONNECTED) return;
+  // Cleanup previous connections
+  WiFi.disconnect(true);        // Disconnect from STA
+  delay(100);                   // Tactical delay
 
-  Serial.print("Verbinde WiFi");
+  // Connect to STA first
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(ssid, password);
   
-  while (wifiMulti.run() != WL_CONNECTED) {
-    Serial.print(".");
-    delay(150);
+  // Attempt connection for 10 seconds
+  unsigned long startTime = millis();
+  while (WiFi.status() != WL_CONNECTED && millis() - startTime < 10000) {
+    delay(500);
   }
-  Serial.print("\nWiFi OK, IP: ");
-  Serial.println(WiFi.localIP());
 }
 
 bool connectBLE() {
@@ -97,21 +138,20 @@ bool ensureInflux() {
   return false;
 }
 
-void setupInfluxPoint() {
-  rpmPoint.clearTags();
-  rpmPoint.addTag("source", "obd");
-  // weitere Tags wie VIN, Fahrzeug, etc. könntest du hier hinzufügen
-}
-
 void setup() {
   Serial.begin(115200);
   delay(300);
+
+  // Log mac adress
+  Serial.print("MAC Address: ");
+  Serial.println(WiFi.macAddress());
+  Serial.print("MAC as integer: ");
+  Serial.println(macInt);
 
   // GPS setup
   ss.begin(9600);
 
   // Network setup
-  setupWiFi();
   connectWiFi();
 
   // Zeit synchronisieren (wichtig für TLS & Timestamps)
@@ -125,15 +165,15 @@ void setup() {
     Serial.print("InfluxDB-Verbindung fehlgeschlagen: ");
     Serial.println(client.getLastErrorMessage());
   }
-
-  setupInfluxPoint();
 }
 
-void writeRPMToInflux(uint32_t rpm) {
+void writeRPMToInflux() {
   rpmPoint.clearFields();
-  rpmPoint.addField("rpm", (int32_t)rpm); // als Integer schreiben
-  // Optional: zusätzlich RSSI oder Status mitgeben
-  // rpmPoint.addField("wifi_rssi", WiFi.RSSI());
+  rpmPoint.addField("mac", (uint64_t)macInt);
+  rpmPoint.addField("rpm", (int32_t)rpm);
+  rpmPoint.addField("latitude", (float)latitude);
+  rpmPoint.addField("longitude", (float)longitude);
+  rpmPoint.addField("kmh", (float)kmh);
 
   Serial.print("Schreibe: ");
   Serial.println(rpmPoint.toLineProtocol());
@@ -151,11 +191,14 @@ void readGPS() {
       // Breitengrad mit 4 Nachkommastellen
       Serial.print("Breitengrad= ");
       Serial.print(gps.location.lat(), 4);
+      latitude = gps.location.lat();
       // Längengrad mit 4 Nachkommastellen
       Serial.print(" Längengrad= ");
       Serial.println(gps.location.lng(), 4);
+      longitude = gps.location.lng();
       Serial.print("Km/h=");
       Serial.println(gps.speed.kmph());
+      kmh = gps.speed.kmph();
     }
   }
 }
@@ -189,10 +232,9 @@ void loop() {
     float tempRPM = myELM327.rpm();
 
     if (myELM327.nb_rx_state == ELM_SUCCESS) {
-      uint32_t rpm = (uint32_t)tempRPM;
+      rpm = (uint32_t)tempRPM;
       Serial.print("RPM: ");
       Serial.println(rpm);
-      writeRPMToInflux(rpm);
     } else if (myELM327.nb_rx_state != ELM_GETTING_MSG) {
       // Fehler anzeigen
       myELM327.printError();
@@ -205,6 +247,7 @@ void loop() {
   // === GPS Daten lesen ===
   readGPS();
 
-  // Optional: kurze Pause, damit die Loop nicht 100% CPU zieht
+  writeRPMToInflux();
+  // Kurze Pause
   delay(5);
 }
