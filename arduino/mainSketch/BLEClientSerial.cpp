@@ -59,7 +59,6 @@ static void notifyCallback(
 
 class MyClientCallback : public BLEClientCallbacks
 {
-
     void onConnect(BLEClient *pclient)
     {
         connected = true;
@@ -73,7 +72,6 @@ class MyClientCallback : public BLEClientCallbacks
 
 class MySecurity : public BLESecurityCallbacks
 {
-
     uint32_t onPassKeyRequest()
     {
         return 123456;
