@@ -19,6 +19,7 @@
                     pkgs.nodejs
                     pkgs.arduino-cli
                     pkgs.arduino-ide
+                    pkgs.python313Packages.pyserial
                 ];
 
                 shellHook = ''
@@ -31,7 +32,7 @@
                   }
                   alias mqtt='nohup mqtt-explorer &'
                   ide() {
-                    nohup arduino-ide --disable-gpu ~/Documents/GitHub/CarSync/arduino/elmExample/elmExample.ino > /dev/null 2>&1 &
+                    nohup arduino-ide --disable-gpu ~/Documents/GitHub/CarSync/arduino/mainSketch/mainSketch.ino > /dev/null 2>&1 &
                     disown
                   }
                   arduino-cli lib list
