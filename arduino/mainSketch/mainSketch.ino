@@ -18,7 +18,6 @@
 #include <WiFiClientSecure.h>
 #include <InfluxDbClient.h>
 #include <Arduino.h>
-#include <ELMduino.h>
 #include <SoftwareSerial.h>
 #include <TinyGPS++.h>
 #include "secrets.h"
@@ -68,8 +67,10 @@ emyPxgcYxn/eR44/KJ4EBs+lVDR3veyJm+kXQ99b21/+jh5Xos1AnX5iItreGCc=
 -----END CERTIFICATE-----
 )EOF";
 
+// BLE serial client
 BLEClientSerial BLESerial;
-ELM327 myELM327;
+
+// TinyGPS instance
 TinyGPSPlus gps;
 
 // Die serielle Verbindung zum GPS Modul
@@ -77,7 +78,7 @@ TinyGPSPlus gps;
 // ESP PIN 5 --> RX
 SoftwareSerial ss(4, 5);
 
-// Zeitsync (für saubere Timestamps
+// Zeitsync (für saubere Timestamps)
 #define TZ_INFO "CET-1CEST,M3.5.0/2,M10.5.0/3"
 
 // Influx-Client + Measurement-Point
@@ -94,13 +95,15 @@ const uint32_t ELM_RETRY_MS          = 5000;
 // Zustandsvariablen
 uint32_t lastInfluxMs   = 0;
 uint32_t lastRPMQueryMs = 0;
-uint32_t lastWiFiTryMs  = 0;
 uint32_t lastBLETryMs   = 0;
 uint32_t lastELMTryMs   = 0;
 
 bool bleConnected  = false;
 bool elmReady      = false;
 bool gpsReady      = false;
+
+// ELM327 response buffer
+std::string elmResponseBuffer = "";
 
 // Calculate MAC-Adress in integer representation for easier comparison
 void calcMacInt(){
@@ -119,17 +122,17 @@ void connectWiFi() {
   // Connect to STA first
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
-  // Disable WiFi power save
-  //esp_wifi_set_ps(WIFI_PS_NONE);
+  Serial.println("Retry WiFi");
   
   // Attempt connection until found
-  Serial.println("Retry WiFi");
   while (WiFi.status() != WL_CONNECTED) {
     Serial.print(".");
     delay(500);
   }
+  Serial.println("Connected to WiFi!");
 }
 
+// Connect BLE
 bool connectBLE() {
   static bool bleInitialized = false;
   if (!bleInitialized) {
@@ -142,22 +145,19 @@ bool connectBLE() {
   return bleConnected;
 }
 
+// Initialize ELM327 (just handshake / setup)
 bool initELM327() {
   if (elmReady) return true;
   if (!bleConnected) return false;
 
   Serial.println("Initialisiere ELM327...");
-  // (stream, debug, timeout_ms)
-  if (!myELM327.begin(BLESerial, false, 3000)) {
-    Serial.println("ELM327 init fehlgeschlagen.");
-    elmReady = false;
-  } else {
-    Serial.println("ELM327 bereit.");
-    elmReady = true;
-  }
+  // No blocking: just make sure BLE is ready
+  elmReady = true;
+  Serial.println("ELM327 bereit.");
   return elmReady;
 }
 
+// Write RPM/GPS to Influx
 void writeRPMToInflux() {
   if((!bleConnected || !elmReady) && !gpsReady){
     Serial.println("Nothing to send to Influx!");
@@ -185,6 +185,7 @@ void writeRPMToInflux() {
   }
 }
 
+// Write an initial debug point
 void writeInitialDebugPoint() {
   initPoint.clearFields();
   initPoint.addField("helloMac", (uint64_t)macInt);
@@ -194,65 +195,64 @@ void writeInitialDebugPoint() {
   }
 }
 
+// Read GPS data from serial
 void readGPS() {
   while (ss.available() > 0) {
     gps.encode(ss.read());
     if (gps.location.isUpdated()) {
-      if(gpsReady == false){
-        gpsReady = true;
-      }
-      // Breitengrad mit 4 Nachkommastellen
-      Serial.print("Breitengrad= ");
-      Serial.print(gps.location.lat(), 4);
+      gpsReady = true;
       latitude = gps.location.lat();
-      // Längengrad mit 4 Nachkommastellen
-      Serial.print(" Längengrad= ");
-      Serial.println(gps.location.lng(), 4);
       longitude = gps.location.lng();
-      Serial.print("Km/h=");
-      Serial.println(gps.speed.kmph());
       kmh = gps.speed.kmph();
+      Serial.print("Lat="); Serial.print(latitude,4);
+      Serial.print(" Lon="); Serial.print(longitude,4);
+      Serial.print(" km/h="); Serial.println(kmh);
     }
   }
 }
 
+// Send RPM request command over BLE
+void requestRpm() {
+  const char rpmCmd[] = "010C\r";
+  BLESerial.write((const uint8_t*)rpmCmd, strlen(rpmCmd));
+}
+
+// Parse RPM from ELM327 response buffer
+bool parseRpmFromBuffer(uint32_t &outRpm) {
+  while (BLESerial.available() > 0) {
+    char c = BLESerial.read();
+    elmResponseBuffer += c;
+  }
+
+  size_t pos = elmResponseBuffer.find("410C");
+  if (pos != std::string::npos && elmResponseBuffer.size() >= pos + 6) {
+    int A = strtol(elmResponseBuffer.substr(pos + 4, 2).c_str(), nullptr, 16);
+    int B = strtol(elmResponseBuffer.substr(pos + 6, 2).c_str(), nullptr, 16);
+    outRpm = ((A * 256) + B) / 4;
+    elmResponseBuffer.erase(0, pos + 6);
+    return true;
+  }
+
+  // Clear buffer if no valid data
+  if (elmResponseBuffer.find("NO_DATA") != std::string::npos || elmResponseBuffer.find("?") != std::string::npos) {
+    elmResponseBuffer.clear();
+  }
+
+  return false;
+}
+
+// Read RPM periodically without blocking
 void readRpm() {
   uint32_t now = millis();
+  if (now - lastRPMQueryMs >= RPM_QUERY_INTERVAL_MS) {
+    lastRPMQueryMs = now;
+    requestRpm();
+  }
 
-  // Only query at intervals
-  if (now - lastRPMQueryMs < RPM_QUERY_INTERVAL_MS) return;
-  lastRPMQueryMs = now;  // update timestamp before calling
-
-  Serial.print("Status before: ");
-  Serial.println(myELM327.nb_rx_state);
-
-  float tempRPM = myELM327.rpm();
-  Serial.print("Raw RPM: ");
-  Serial.println(tempRPM);
-
-  Serial.print("Status after: ");
-  Serial.println(myELM327.nb_rx_state);
-
-  switch(myELM327.nb_rx_state){
-    case ELM_SUCCESS:
-      Serial.println("ELM_SUCCESS");
-      rpm = (uint32_t)tempRPM;
-      Serial.print("RPM: ");
-      Serial.println(rpm);
-      break;
-    case ELM_NO_DATA:
-    case ELM_TIMEOUT:
-      Serial.println("ELM_ERROR");
-      myELM327.printError();
-      elmReady = false; // trigger reconnect
-      break;
-    case ELM_GETTING_MSG:
-      Serial.println("ELM_GETTING_MSG");
-      break;
-    default:
-      Serial.print("Unknown nb_rx_state: ");
-      Serial.println(myELM327.nb_rx_state);
-      break;
+  uint32_t tempRpm = 0;
+  if (parseRpmFromBuffer(tempRpm)) {
+    rpm = tempRpm;
+    Serial.print("RPM: "); Serial.println(rpm);
   }
 }
 
@@ -274,53 +274,44 @@ void setup() {
 
   // Mac-Adresse berechnen
   calcMacInt();
-
-  // Log mac adress
-  Serial.print("MAC Address: ");
-  Serial.println(WiFi.macAddress());
-  Serial.print("MAC as integer: ");
-  Serial.println(macInt);
+  Serial.print("MAC: "); Serial.println(WiFi.macAddress());
+  Serial.print("MAC int: "); Serial.println(macInt);
 
   // Influx testen
   if (client.validateConnection()) {
-    Serial.print("Verbunden mit InfluxDB: ");
-    Serial.println(client.getServerUrl());
+    Serial.print("Verbunden mit InfluxDB: "); Serial.println(client.getServerUrl());
   } else {
-    Serial.print("InfluxDB-Verbindung fehlgeschlagen: ");
-    Serial.println(client.getLastErrorMessage());
+    Serial.print("InfluxDB-Verbindung fehlgeschlagen: "); Serial.println(client.getLastErrorMessage());
   }
 
   writeInitialDebugPoint();
 }
 
 void loop() {
-  const uint32_t now = millis();
+  uint32_t now = millis();
 
   // === WiFi sicherstellen ===
-  if (WiFi.status() != WL_CONNECTED) {
-    connectWiFi();
-  }
+  if (WiFi.status() != WL_CONNECTED) connectWiFi();
 
   // === BLE sicherstellen ===
   if (!bleConnected && now - lastBLETryMs >= BLE_RETRY_MS) {
     lastBLETryMs = now;
     connectBLE();
-    if (bleConnected) lastELMTryMs = 0; // nach erfolgreichem BLE neu versuchen ELM
+    if (bleConnected) lastELMTryMs = 0;
   }
 
-  // === ELM initialisieren ===
+  // === ELM initialisieren (non-blocking) ===
   if (bleConnected && !elmReady && now - lastELMTryMs >= ELM_RETRY_MS) {
     lastELMTryMs = now;
     initELM327();
-    delay(2000); // Give ELM time to stop searching
+    delay(2000); // Give ELM time to settle
   }
-  
-  // === GPS Daten lesen ===
-  readGPS(); // Executed every loop so that SerialBuffer is kept small
 
-  // Get RPM
-  if(elmReady)
-    readRpm();
+  // === GPS Daten lesen ===
+  readGPS();
+
+  // === RPM lesen ===
+  if (elmReady) readRpm();
 
   // === Alle 1s RPM lesen & schreiben ===
   if (WiFi.status() == WL_CONNECTED && now - lastInfluxMs >= INFLUX_INTERVAL_MS) {
