@@ -1,41 +1,37 @@
-#ifndef _BLE_CLIENT_SERIAL_H_
-#define _BLE_CLIENT_SERIAL_H_
+#ifndef BLEClientSerial_h
+#define BLEClientSerial_h
 
-#include "Arduino.h"
-#include "Stream.h"
 #include <BLEDevice.h>
 #include <BLEUtils.h>
 #include <BLEScan.h>
 #include <BLEAdvertisedDevice.h>
+#include <BLE2902.h>
 #include "secrets.h"
+#include <Stream.h>
 
-class BLEClientSerial: public Stream
-{
-    public:
+class BLEClientSerial : public Stream {
+public:
+    BLEClientSerial();
+    ~BLEClientSerial();
+    
+    bool begin(char *localName);
+    bool connect(void);
+    
+    // Stream interface implementation - remove the duplicate declarations
+    int available() override;
+    int read() override;
+    int peek() override;
+    void flush() override;
+    
+    size_t write(uint8_t data) override;
+    size_t write(const uint8_t *buffer, size_t size) override;
+    
+    void end();
 
-        BLEClientSerial(void);
-        ~BLEClientSerial(void);
+    String readLine();
 
-        bool begin(char* localName);
-        int available(void);
-        int peek(void);
-        bool connected(void);
-        bool connect(void);
-        int read(void);
-        size_t write(uint8_t c);
-        size_t write(const uint8_t *buffer, size_t size);
-        void flush();
-        void end(void);
-
-    private:
-        BLERemoteCharacteristic* pTxCharacteristic;
-        BLERemoteCharacteristic* pRxCharacteristic;
-        String targetDeviceName;
-
-        friend class MyClientCallback;
-        friend class MySecurity;
-        friend class MyAdvertisedDeviceCallbacks;
-
+private:
+    // No private members needed for this simple implementation
 };
 
 #endif

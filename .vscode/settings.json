@@ -59,6 +59,8 @@
   "files.associations": {
     "*.l": "c",
     "*.y": "c",
-    "cstdint": "cpp"
+    "cstdint": "cpp",
+    "string_view": "cpp",
+    "regex": "cpp"
   }
 }
