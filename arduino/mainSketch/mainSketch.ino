@@ -82,7 +82,7 @@ SoftwareSerial ss(4, 5);
 // Influx-Client + Measurement-Point
 InfluxDBClient client(INFLUXDB_URL, INFLUXDB_ORG, INFLUXDB_BUCKET, INFLUXDB_TOKEN, ServerCert);
 Point dataPoint("data"); // measurement name
-Point dataPoint("init");
+Point initPoint("init");
 
 // Intervall-Einstellungen
 const uint32_t READ_INTERVAL_MS  = 1000;   // jede Sekunde RPM lesen/schreiben
@@ -180,6 +180,15 @@ void writeRPMToInflux() {
   }
 }
 
+void writeInitialDebugPoint() {
+  initPoint.clearFields();
+  initPoint.addField("helloMac", (uint64_t)macInt);
+  if (!client.writePoint(initPoint)) {
+    Serial.print("Init-InfluxError: ");
+    Serial.println(client.getLastErrorMessage());
+  }
+}
+
 void readGPS() {
   while (ss.available() > 0) {
     gps.encode(ss.read());
@@ -246,6 +255,8 @@ void setup() {
     Serial.print("InfluxDB-Verbindung fehlgeschlagen: ");
     Serial.println(client.getLastErrorMessage());
   }
+
+  writeInitialDebugPoint();
 }
 
 void loop() {
