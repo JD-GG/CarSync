@@ -9,33 +9,28 @@
 #include <BLEAdvertisedDevice.h>
 #include "secrets.h"
 
-class BLEClientSerial: public Stream
-{
-    public:
+class BLEClientSerial {
+public:
+    BLEClientSerial();
+    ~BLEClientSerial();
 
-        BLEClientSerial(void);
-        ~BLEClientSerial(void);
+    bool begin(char *localName);
+    bool connect(void);
+    int available(void);
+    int peek(void);
+    int read(void);
+    size_t write(uint8_t c);
+    size_t write(const uint8_t *buffer, size_t size);
+    void flush();
+    void end();
 
-        bool begin(char* localName);
-        int available(void);
-        int peek(void);
-        bool connected(void);
-        bool connect(void);
-        int read(void);
-        size_t write(uint8_t c);
-        size_t write(const uint8_t *buffer, size_t size);
-        void flush();
-        void end(void);
+    // static instance pointer (needed for callbacks)
+    static BLEClientSerial* instance;
 
-    private:
-        BLERemoteCharacteristic* pTxCharacteristic;
-        BLERemoteCharacteristic* pRxCharacteristic;
-        String targetDeviceName;
-
-        friend class MyClientCallback;
-        friend class MySecurity;
-        friend class MyAdvertisedDeviceCallbacks;
-
+private:
+    BLERemoteCharacteristic* pRxCharacteristic;
+    BLERemoteCharacteristic* pTxCharacteristic;
 };
+
 
 #endif

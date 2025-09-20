@@ -151,11 +151,24 @@ bool initELM327() {
   if (!bleConnected) return false;
 
   Serial.println("Initialisiere ELM327...");
-  // No blocking: just make sure BLE is ready
+
+  auto sendAT = [&](const char* cmd) {
+    BLESerial.write((const uint8_t*)cmd, strlen(cmd));
+    Serial.print(">> "); Serial.println(cmd);
+    delay(200); // give ELM time to respond
+  };
+
+  sendAT("ATZ\r");   // Reset
+  sendAT("ATE0\r");  // Echo off
+  sendAT("ATL0\r");  // Linefeeds off
+  sendAT("ATS0\r");  // Spaces off (optional)
+
   elmReady = true;
   Serial.println("ELM327 bereit.");
   return elmReady;
 }
+
+
 
 // Write RPM/GPS to Influx
 void writeRPMToInflux() {
