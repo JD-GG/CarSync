@@ -116,7 +116,6 @@ void connectWiFi() {
   // Connect to STA first
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
-  WiFi.setSleep(false);
   
   // Attempt connection until found
   Serial.println("Retry WiFi");
@@ -227,16 +226,8 @@ void readRpm(){
 }
 
 void setup() {
-  calcMacInt();
-
   Serial.begin(115200);
   delay(300);
-
-  // Log mac adress
-  Serial.print("MAC Address: ");
-  Serial.println(WiFi.macAddress());
-  Serial.print("MAC as integer: ");
-  Serial.println(macInt);
 
   // GPS setup
   ss.begin(9600);
@@ -246,6 +237,15 @@ void setup() {
 
   // Zeit synchronisieren (wichtig für TLS & Timestamps)
   timeSync(TZ_INFO, "pool.ntp.org", "0.pool.ntp.org");
+
+  // Mac-Adresse berechnen
+  calcMacInt();
+
+  // Log mac adress
+  Serial.print("MAC Address: ");
+  Serial.println(WiFi.macAddress());
+  Serial.print("MAC as integer: ");
+  Serial.println(macInt);
 
   // Influx testen
   if (client.validateConnection()) {
