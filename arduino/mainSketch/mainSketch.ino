@@ -86,7 +86,7 @@ Point dataPoint("data"); // measurement name
 Point initPoint("init");
 
 // Intervall-Einstellungen
-const uint32_t READ_INTERVAL_MS  = 3000;   // jede Sekunde RPM lesen/schreiben
+const uint32_t READ_INTERVAL_MS  = 1000;   // jede Sekunde RPM lesen/schreiben
 const uint32_t BLE_RETRY_MS      = 5000;
 const uint32_t ELM_RETRY_MS      = 5000;
 
@@ -117,8 +117,6 @@ void connectWiFi() {
   // Connect to STA first
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
-  // Disable WiFi power save
-  //esp_wifi_set_ps(WIFI_PS_NONE);
   
   // Attempt connection until found
   Serial.println("Retry WiFi");
@@ -156,7 +154,7 @@ bool initELM327() {
   return elmReady;
 }
 
-void writeRPMToInflux() {
+void writeToInflux() {
   if((!bleConnected || !elmReady) && !gpsReady){
     Serial.println("Nothing to send to Influx!");
     return;
@@ -216,14 +214,7 @@ void readGPS() {
 
 void readRpm(){
   float tempRPM = myELM327.rpm();
-  Serial.print("Raw RPM: "); 
-  Serial.println(tempRPM);
-  rpm = (uint32_t)tempRPM;
-  Serial.println(ELM_SUCCESS);
-  Serial.println(ELM_GETTING_MSG);
-  Serial.print("ELM_RX_State: ");
-  Serial.println(myELM327.nb_rx_state);
-  /*
+
   if (myELM327.nb_rx_state == ELM_SUCCESS) {
     rpm = (uint32_t)tempRPM;
     Serial.print("RPM: ");
@@ -232,9 +223,9 @@ void readRpm(){
     // Fehler anzeigen
     myELM327.printError();
 
-    // Bei hartem Fehler ELM reconnect versuchen
+    // Bei hartem Fehler ggf. ELM reconnect versuchen
     elmReady = false;
-  }*/
+  }
   delay(1); // Make a little time for wifi stack
 }
 
@@ -294,7 +285,6 @@ void loop() {
   if (bleConnected && !elmReady && now - lastELMTryMs >= ELM_RETRY_MS) {
     lastELMTryMs = now;
     initELM327();
-    delay(2000); // Give ELM time to stop searching
   }
   
   // === GPS Daten lesen ===
@@ -305,6 +295,6 @@ void loop() {
     lastReadMs = now;
     if(elmReady)
       readRpm();
-    writeRPMToInflux();
+    writeToInflux();
   }
 }
