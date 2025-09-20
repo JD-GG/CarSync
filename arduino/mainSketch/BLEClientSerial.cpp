@@ -48,12 +48,21 @@ static void notifyCallback(
     Serial.print("[DEBUG] ELM RESPONSE > ");
     printFriendlyResponse(pData, length);
 
-    // Convert the received data into a string
+    // Check for complete ELM327 response (ends with '>')
+    bool responseComplete = false;
+    for (int i = 0; i < length; i++) {
+        if (pData[i] == '>') {
+            responseComplete = true;
+            break;
+        }
+    }
+    
     std::string receivedData((char*)pData, length);
-
-    // If the new string is already present at the end of staticBuffer, we avoid concatenating it
-    if (staticBuffer.size() < length || staticBuffer.substr(staticBuffer.size() - length) != receivedData) {
-        staticBuffer += receivedData;
+    staticBuffer += receivedData;
+    
+    // If response is complete, signal the ELM327 library
+    if (responseComplete) {
+        // You might need to set a flag here that your readRpm function can check
     }
 }
 

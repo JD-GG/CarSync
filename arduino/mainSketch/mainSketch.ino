@@ -147,6 +147,13 @@ bool initELM327() {
   if (!bleConnected) return false;
 
   Serial.println("Initialisiere ELM327...");
+  
+  // Send ATZ reset command first - use the array version of write()
+  const uint8_t resetCmd[] = "ATZ\r";
+  BLESerial.write(resetCmd, sizeof(resetCmd) - 1); // -1 to exclude null terminator
+  delay(1000);
+  flushELMBuffer(); // Clear any response
+  
   // (stream, debug, timeout_ms)
   if (!myELM327.begin(BLESerial, false, 3000)) {
     Serial.println("ELM327 init fehlgeschlagen.");
@@ -216,15 +223,32 @@ void readGPS() {
   }
 }
 
+void flushELMBuffer() {
+  while (BLESerial.available()) {
+    BLESerial.read();
+    delay(1);
+  }
+  // Also clear the static buffer in your BLE client
+  BLESerial.flush();
+}
+
 void readRpm() {
   uint32_t now = millis();
 
   // Only query at intervals
   if (now - lastRPMQueryMs < RPM_QUERY_INTERVAL_MS) return;
-  lastRPMQueryMs = now;  // update timestamp before calling
+  lastRPMQueryMs = now;
 
   Serial.print("Status before: ");
   Serial.println(myELM327.nb_rx_state);
+
+  // Clear any pending data before making new request
+  if (myELM327.nb_rx_state == ELM_GETTING_MSG) {
+    Serial.println("Clearing stuck state...");
+    flushELMBuffer(); // Add this method to ELMduino if it doesn't exist
+    myELM327.nb_rx_state = ELM_SUCCESS; // Reset state
+    delay(100);
+  }
 
   float tempRPM = myELM327.rpm();
   Serial.print("Raw RPM: ");
@@ -244,14 +268,30 @@ void readRpm() {
     case ELM_TIMEOUT:
       Serial.println("ELM_ERROR");
       myELM327.printError();
-      elmReady = false; // trigger reconnect
+      // Don't immediately mark as not ready, try a few times
+      static uint8_t errorCount = 0;
+      errorCount++;
+      if (errorCount > 3) {
+        elmReady = false;
+        errorCount = 0;
+      }
       break;
     case ELM_GETTING_MSG:
-      Serial.println("ELM_GETTING_MSG");
+      Serial.println("ELM_GETTING_MSG - Response incomplete");
+      // Add timeout mechanism
+      static uint32_t gettingMsgStart = 0;
+      if (gettingMsgStart == 0) gettingMsgStart = millis();
+      
+      if (millis() - gettingMsgStart > 1000) { // 1 second timeout
+        Serial.println("ELM_GETTING_MSG timeout, resetting state");
+        myELM327.nb_rx_state = ELM_SUCCESS;
+        gettingMsgStart = 0;
+      }
       break;
     default:
       Serial.print("Unknown nb_rx_state: ");
       Serial.println(myELM327.nb_rx_state);
+      myELM327.nb_rx_state = ELM_SUCCESS; // Reset to known state
       break;
   }
 }
