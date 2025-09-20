@@ -128,18 +128,14 @@ void connectWiFi() {
 bool connectBLE() {
   static bool bleInitialized = false;
   if (!bleInitialized) {
-    Serial.printf("Free heap before BLE begin: %u\n", ESP.getFreeHeap());
-    Serial.printf("OBD_NAME: %s\n", OBD_NAME);
     BLESerial.begin(OBD_NAME);
     bleInitialized = true;
   }
 
-  Serial.println("Verbinde BLE zu OBD");
   bleConnected = BLESerial.connect();
   Serial.println(bleConnected ? "BLE verbunden." : "BLE fehlgeschlagen.");
   return bleConnected;
 }
-
 
 bool initELM327() {
   if (elmReady) return true;
@@ -147,7 +143,7 @@ bool initELM327() {
 
   Serial.println("Initialisiere ELM327...");
   // (stream, debug, timeout_ms)
-  if (!myELM327.begin(BLESerial, true, 2000)) {
+  if (!myELM327.begin(BLESerial, false, 2000)) {
     Serial.println("ELM327 init fehlgeschlagen.");
     elmReady = false;
   } else {
@@ -157,13 +153,18 @@ bool initELM327() {
   return elmReady;
 }
 
-
 void writeRPMToInflux() {
+  if((!bleConnected || !elmReady) && !gpsReady){
+    Serial.println("Nothing to send to Influx!");
+    return;
+  }
+
   dataPoint.clearFields();
   dataPoint.addField("mac", (uint64_t)macInt);
   if(bleConnected && elmReady){
     dataPoint.addField("rpm", (int32_t)rpm);
   }
+
   // If GPS was initialized once, write last known position
   if(gpsReady){
     dataPoint.addField("latitude", (float)latitude);
