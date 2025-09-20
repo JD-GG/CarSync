@@ -111,9 +111,7 @@ void calcMacInt(){
 
 // Connect to Wi-Fi with retries
 void connectWiFi() {
-  // Cleanup previous connections
-  WiFi.disconnect(true);        // Disconnect from STA
-  delay(100);                   // Tactical delay
+  if (WiFi.status() == WL_CONNECTED) return;
 
   // Connect to STA first
   WiFi.mode(WIFI_STA);
@@ -129,18 +127,20 @@ void connectWiFi() {
 }
 
 bool connectBLE() {
-  if (bleConnected) 
-    return true;
-  Serial.println("Verbinde BLE zu OBD");
-  BLESerial.begin(OBD_NAME); // Name deines Adapters
-  bleConnected = BLESerial.connect();
-  if (bleConnected) {
-    Serial.println("BLE verbunden.");
-  } else {
-    Serial.println("BLE-Verbindung fehlgeschlagen.");
+  static bool bleInitialized = false;
+  if (!bleInitialized) {
+    Serial.printf("Free heap before BLE begin: %u\n", ESP.getFreeHeap());
+    Serial.printf("OBD_NAME: %s\n", OBD_NAME);
+    BLESerial.begin(OBD_NAME);
+    bleInitialized = true;
   }
+
+  Serial.println("Verbinde BLE zu OBD");
+  bleConnected = BLESerial.connect();
+  Serial.println(bleConnected ? "BLE verbunden." : "BLE fehlgeschlagen.");
   return bleConnected;
 }
+
 
 bool initELM327() {
   if (elmReady) return true;
@@ -148,7 +148,7 @@ bool initELM327() {
 
   Serial.println("Initialisiere ELM327...");
   // (stream, debug, timeout_ms)
-  if (!myELM327.begin(BLESerial, false, 2000)) {
+  if (!myELM327.begin(BLESerial, true, 2000)) {
     Serial.println("ELM327 init fehlgeschlagen.");
     elmReady = false;
   } else {
