@@ -148,7 +148,7 @@ bool initELM327() {
 
   Serial.println("Initialisiere ELM327...");
   // (stream, debug, timeout_ms)
-  if (!myELM327.begin(BLESerial, true, 2000)) {
+  if (!myELM327.begin(BLESerial, false, 2000)) {
     Serial.println("ELM327 init fehlgeschlagen.");
     elmReady = false;
   } else {
