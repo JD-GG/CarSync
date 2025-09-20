@@ -86,12 +86,14 @@ Point dataPoint("data"); // measurement name
 Point initPoint("init");
 
 // Intervall-Einstellungen
-const uint32_t READ_INTERVAL_MS  = 3000;   // jede Sekunde RPM lesen/schreiben
-const uint32_t BLE_RETRY_MS      = 5000;
-const uint32_t ELM_RETRY_MS      = 5000;
+const uint32_t INFLUX_INTERVAL_MS    = 3000;
+const uint32_t RPM_QUERY_INTERVAL_MS = 600;
+const uint32_t BLE_RETRY_MS          = 5000;
+const uint32_t ELM_RETRY_MS          = 5000;
 
 // Zustandsvariablen
-uint32_t lastReadMs     = 0;
+uint32_t lastInfluxMs   = 0;
+uint32_t lastRPMQueryMs = 0;
 uint32_t lastWiFiTryMs  = 0;
 uint32_t lastBLETryMs   = 0;
 uint32_t lastELMTryMs   = 0;
@@ -214,28 +216,44 @@ void readGPS() {
   }
 }
 
-void readRpm(){
-  float tempRPM = myELM327.rpm();
-  Serial.print("Raw RPM: "); 
-  Serial.println(tempRPM);
-  rpm = (uint32_t)tempRPM;
-  Serial.println(ELM_SUCCESS);
-  Serial.println(ELM_GETTING_MSG);
-  Serial.print("ELM_RX_State: ");
-  Serial.println(myELM327.nb_rx_state);
-  /*
-  if (myELM327.nb_rx_state == ELM_SUCCESS) {
-    rpm = (uint32_t)tempRPM;
-    Serial.print("RPM: ");
-    Serial.println(rpm);
-  } else if (myELM327.nb_rx_state != ELM_GETTING_MSG) {
-    // Fehler anzeigen
-    myELM327.printError();
+void readRpm() {
+  uint32_t now = millis();
 
-    // Bei hartem Fehler ELM reconnect versuchen
-    elmReady = false;
-  }*/
-  delay(1); // Make a little time for wifi stack
+  // Only query at intervals
+  if (now - lastRPMQueryMs < RPM_QUERY_INTERVAL_MS) return;
+  lastRPMQueryMs = now;  // update timestamp before calling
+
+  Serial.print("Status before: ");
+  Serial.println(myELM327.nb_rx_state);
+
+  float tempRPM = myELM327.rpm();
+  Serial.print("Raw RPM: ");
+  Serial.println(tempRPM);
+
+  Serial.print("Status after: ");
+  Serial.println(myELM327.nb_rx_state);
+
+  switch(myELM327.nb_rx_state){
+    case ELM_SUCCESS:
+      Serial.println("ELM_SUCCESS");
+      rpm = (uint32_t)tempRPM;
+      Serial.print("RPM: ");
+      Serial.println(rpm);
+      break;
+    case ELM_NO_DATA:
+    case ELM_TIMEOUT:
+      Serial.println("ELM_ERROR");
+      myELM327.printError();
+      elmReady = false; // trigger reconnect
+      break;
+    case ELM_GETTING_MSG:
+      Serial.println("ELM_GETTING_MSG");
+      break;
+    default:
+      Serial.print("Unknown nb_rx_state: ");
+      Serial.println(myELM327.nb_rx_state);
+      break;
+  }
 }
 
 void setup() {
@@ -300,11 +318,13 @@ void loop() {
   // === GPS Daten lesen ===
   readGPS(); // Executed every loop so that SerialBuffer is kept small
 
+  // Get RPM
+  if(elmReady)
+    readRpm();
+
   // === Alle 1s RPM lesen & schreiben ===
-  if (WiFi.status() == WL_CONNECTED && now - lastReadMs >= READ_INTERVAL_MS) {
-    lastReadMs = now;
-    if(elmReady)
-      readRpm();
+  if (WiFi.status() == WL_CONNECTED && now - lastInfluxMs >= INFLUX_INTERVAL_MS) {
+    lastInfluxMs = now;
     writeRPMToInflux();
   }
 }
