@@ -4,7 +4,7 @@
 // Boards:
 // esp32 by Espressif Systems@2.0.17
 
-// Select ESP32 Dev Module as your board
+// Select "ESP32 Dev Module" as your board
 // Select in ArduinoIDE Tools > Partition Scheme > Huge APP
 
 // Libraries:
