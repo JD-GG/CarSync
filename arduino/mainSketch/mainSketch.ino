@@ -290,11 +290,13 @@ void loop() {
   // === GPS Daten lesen ===
   readGPS(); // Executed every loop so that SerialBuffer is kept small
 
+
+  if(elmReady)
+      readRpm();
+
   // === Alle 1s RPM lesen & schreiben ===
   if (WiFi.status() == WL_CONNECTED && now - lastReadMs >= READ_INTERVAL_MS) {
     lastReadMs = now;
-    if(elmReady)
-      readRpm();
     writeToInflux();
   }
 }
