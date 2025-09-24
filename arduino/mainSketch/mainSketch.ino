@@ -86,21 +86,19 @@ Point dataPoint("data"); // measurement name
 Point initPoint("init");
 
 // Intervall-Einstellungen
-const uint32_t READ_INTERVAL_MS  = 1000;   // jede Sekunde RPM lesen/schreiben
-const uint32_t BLE_RETRY_MS      = 5000;
-const uint32_t ELM_RETRY_MS      = 5000;
-const uint32_t BLE_FLUSH_MS      = 5000;
+const uint32_t INFLUX_INTERVAL_MS  = 1000;   // jede Sekunden Influx schreiben
+const uint32_t BLE_RETRY_MS        = 5000;
+const uint32_t ELM_RETRY_MS        = 5000;
 
 // Zustandsvariablen
-uint32_t lastReadMs     = 0;
-uint32_t lastWiFiTryMs  = 0;
+uint32_t lastInfluxMs   = 0;
 uint32_t lastBLETryMs   = 0;
 uint32_t lastELMTryMs   = 0;
-uint32_t lastBLEFlushMs = 0;
 
-bool bleConnected  = false;
-bool elmReady      = false;
+bool bleConnected  = false; // False until BLE init succes
+bool elmReady      = false; // False until ELM init succes
 bool gpsReady      = false;
+bool gotRpmValue   = false;
 
 // Calculate MAC-Adress in integer representation for easier comparison
 void calcMacInt(){
@@ -128,7 +126,7 @@ void connectWiFi() {
   }
 }
 
-bool connectBLE() {
+void connectBLE() {
   static bool bleInitialized = false;
   if (!bleInitialized) {
     BLESerial.begin(OBD_NAME);
@@ -137,37 +135,33 @@ bool connectBLE() {
 
   bleConnected = BLESerial.connect();
   Serial.println(bleConnected ? "BLE verbunden." : "BLE fehlgeschlagen.");
-  return bleConnected;
 }
 
-bool initELM327() {
-  if (elmReady) return true;
-  if (!bleConnected) return false;
-
+void initELM327() {
   Serial.println("Initialisiere ELM327...");
-  // (stream, debug, timeout_ms)
-  if (!myELM327.begin(BLESerial, false, 3000)) {
-    Serial.println("ELM327 init fehlgeschlagen.");
-    elmReady = false;
+  if (!myELM327.begin(BLESerial, false, 2000)) {
+    Serial.println("ELM327 init fehlgeschlagen");
   } else {
-    Serial.println("ELM327 bereit.");
+    Serial.println("ELM327 bereit");
     elmReady = true;
   }
-  return elmReady;
 }
 
 void writeToInflux() {
-  if((!bleConnected || !elmReady) && !gpsReady){
+  if(!gotRpmValue && !gpsReady){
     Serial.println("Nothing to send to Influx!");
     return;
   }
 
   dataPoint.clearFields();
   dataPoint.addField("mac", (uint64_t)macInt);
-  if(bleConnected && elmReady){
+
+  // If a fresh RPM value is available
+  if(gotRpmValue){
+    gotRpmValue = false;
     dataPoint.addField("rpm", (int32_t)rpm);
   }
-
+  
   // If GPS was initialized once, write last known position
   if(gpsReady){
     dataPoint.addField("latitude", (float)latitude);
@@ -214,26 +208,22 @@ void readGPS() {
   }
 }
 
-void readRpm(uint32_t now){
-  if (now - lastBLEFlushMs >= BLE_FLUSH_MS) {
-    lastBLEFlushMs = now;
-    BLESerial.flush(); // Clear any old data
-  }
+void readRpm(){
+  if(!elmReady) return; // No bueno ohne ELM
 
   float tempRPM = myELM327.rpm();
 
-  if (myELM327.nb_rx_state == ELM_SUCCESS) {
+  if (myELM327.nb_rx_state == ELM_SUCCESS)
+  {
+    gotRpmValue = true;
     rpm = (uint32_t)tempRPM;
-    Serial.print("RPM: ");
-    Serial.println(rpm);
-  } else if (myELM327.nb_rx_state != ELM_GETTING_MSG) {
-    // Fehler anzeigen
-    myELM327.printError();
-
-    // Bei hartem Fehler ggf. ELM reconnect versuchen
-    elmReady = false;
+    Serial.print("RPM: "); Serial.println(rpm);
+    BLESerial.flush(); // Remove any old values from buffer
   }
-  delay(1); // Make a little time for wifi stack
+  else if (myELM327.nb_rx_state != ELM_GETTING_MSG){
+    myELM327.printError();
+    BLESerial.flush(); // Clean Buffer from errors
+  }
 }
 
 void setup() {
@@ -278,17 +268,17 @@ void loop() {
 
   // === WiFi sicherstellen ===
   if (WiFi.status() != WL_CONNECTED) {
-    connectWiFi();
+    connectWiFi();// Is infinite on purpose. No point in getting data w/o internet
   }
 
-  // === BLE sicherstellen ===
+  // === BLE init ===
   if (!bleConnected && now - lastBLETryMs >= BLE_RETRY_MS) {
     lastBLETryMs = now;
     connectBLE();
     if (bleConnected) lastELMTryMs = 0; // nach erfolgreichem BLE neu versuchen ELM
   }
 
-  // === ELM initialisieren ===
+  // === ELM init ===
   if (bleConnected && !elmReady && now - lastELMTryMs >= ELM_RETRY_MS) {
     lastELMTryMs = now;
     initELM327();
@@ -297,12 +287,12 @@ void loop() {
   // === GPS Daten lesen ===
   readGPS(); // Executed every loop so that SerialBuffer is kept small
 
-  if(elmReady)
-      readRpm(now);
+  // === RPM OBD2 Daten lesen ===
+  readRpm();
 
-  // === Alle 1s RPM lesen & schreiben ===
-  if (WiFi.status() == WL_CONNECTED && now - lastReadMs >= READ_INTERVAL_MS) {
-    lastReadMs = now;
+  // === InfluxDB mit Werten versorgen wenn verhanden ===
+  if (WiFi.status() == WL_CONNECTED && now - lastInfluxMs >= INFLUX_INTERVAL_MS) {
+    lastInfluxMs = now;
     writeToInflux();
   }
 }

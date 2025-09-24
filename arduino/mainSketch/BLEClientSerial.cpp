@@ -38,7 +38,6 @@ static void printFriendlyResponse(uint8_t *pData, size_t length)
     Serial.println("");
 }
 
-
 static void notifyCallback(
     BLERemoteCharacteristic *pBLERemoteCharacteristic,
     uint8_t *pData,
@@ -59,6 +58,7 @@ static void notifyCallback(
 
 class MyClientCallback : public BLEClientCallbacks
 {
+
     void onConnect(BLEClient *pclient)
     {
         connected = true;
@@ -72,6 +72,7 @@ class MyClientCallback : public BLEClientCallbacks
 
 class MySecurity : public BLESecurityCallbacks
 {
+
     uint32_t onPassKeyRequest()
     {
         return 123456;
@@ -171,7 +172,6 @@ int BLEClientSerial::peek(void)
 
 bool BLEClientSerial::connect(void)
 {
-    Serial.println("Forming a connection to ");
     Serial.println("Forming a connection to ");
     if (myDevice == nullptr) {
         Serial.println("Error: No BLE device found! Make sure OBD is turned on.");
