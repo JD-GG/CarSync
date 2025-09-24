@@ -89,12 +89,14 @@ Point initPoint("init");
 const uint32_t READ_INTERVAL_MS  = 1000;   // jede Sekunde RPM lesen/schreiben
 const uint32_t BLE_RETRY_MS      = 5000;
 const uint32_t ELM_RETRY_MS      = 5000;
+const uint32_t BLE_FLUSH_MS      = 5000;
 
 // Zustandsvariablen
 uint32_t lastReadMs     = 0;
 uint32_t lastWiFiTryMs  = 0;
 uint32_t lastBLETryMs   = 0;
 uint32_t lastELMTryMs   = 0;
+uint32_t lastBLEFlushMs = 0;
 
 bool bleConnected  = false;
 bool elmReady      = false;
@@ -212,7 +214,12 @@ void readGPS() {
   }
 }
 
-void readRpm(){
+void readRpm(uint32_t now){
+  if (now - lastBLEFlushMs >= BLE_FLUSH_MS) {
+    lastBLEFlushMs = now;
+    BLESerial.flush(); // Clear any old data
+  }
+
   float tempRPM = myELM327.rpm();
 
   if (myELM327.nb_rx_state == ELM_SUCCESS) {
@@ -290,9 +297,8 @@ void loop() {
   // === GPS Daten lesen ===
   readGPS(); // Executed every loop so that SerialBuffer is kept small
 
-
   if(elmReady)
-      readRpm();
+      readRpm(now);
 
   // === Alle 1s RPM lesen & schreiben ===
   if (WiFi.status() == WL_CONNECTED && now - lastReadMs >= READ_INTERVAL_MS) {
