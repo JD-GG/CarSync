@@ -19,7 +19,8 @@
 #include <InfluxDbClient.h>
 #include <Arduino.h>
 #include <ELMduino.h>
-#include <SoftwareSerial.h>
+#include <HardwareSerial.h>
+#include "driver/uart.h"  // needed for uart_flush_input()
 #include <TinyGPS++.h>
 #include "secrets.h"
 #include "BLEClientSerial.h"
@@ -71,11 +72,12 @@ emyPxgcYxn/eR44/KJ4EBs+lVDR3veyJm+kXQ99b21/+jh5Xos1AnX5iItreGCc=
 BLEClientSerial BLESerial;
 ELM327 myELM327;
 TinyGPSPlus gps;
+HardwareSerial gpsSerial(1); // Use UART1
 
 // Die serielle Verbindung zum GPS Modul
 // ESP PIN 4 --> TX
 // ESP PIN 5 --> RX
-SoftwareSerial ss(4, 5);
+// SoftwareSerial ss(4, 5);
 
 // Zeitsync (für saubere Timestamps
 #define TZ_INFO "CET-1CEST,M3.5.0/2,M10.5.0/3"
@@ -94,11 +96,13 @@ const uint32_t ELM_RETRY_MS        = 5000;
 uint32_t lastInfluxMs   = 0;
 uint32_t lastBLETryMs   = 0;
 uint32_t lastELMTryMs   = 0;
+uint32_t lastGpsValueMs   = 0;
 
 bool bleConnected  = false; // False until BLE init succes
 bool elmReady      = false; // False until ELM init succes
 bool gpsReady      = false;
 bool gotRpmValue   = false;
+bool gotGpsValue   = false;
 
 // Calculate MAC-Adress in integer representation for easier comparison
 void calcMacInt(){
@@ -163,10 +167,10 @@ void writeToInflux() {
   }
   
   // If GPS was initialized once, write last known position
-  if(gpsReady){
+  if(gotGpsValue){
+    gotGpsValue = false;
     dataPoint.addField("latitude", (float)latitude);
     dataPoint.addField("longitude", (float)longitude);
-    dataPoint.addField("kmh", (float)kmh);
   }
 
   Serial.println(dataPoint.toLineProtocol());
@@ -187,12 +191,17 @@ void writeInitialDebugPoint() {
 }
 
 void readGPS() {
-  while (ss.available() > 0) {
-    gps.encode(ss.read());
+  while (gpsSerial.available() > 0) {
+    Serial.println("B");
+    gps.encode(gpsSerial.read());
+    
     if (gps.location.isUpdated()) {
+      lastGpsValueMs = millis();
+      gotGpsValue = true;
       if(gpsReady == false){
         gpsReady = true;
       }
+
       // Breitengrad mit 4 Nachkommastellen
       Serial.print("Breitengrad= ");
       Serial.print(gps.location.lat(), 4);
@@ -201,10 +210,14 @@ void readGPS() {
       Serial.print(" Längengrad= ");
       Serial.println(gps.location.lng(), 4);
       longitude = gps.location.lng();
-      Serial.print("Km/h=");
-      Serial.println(gps.speed.kmph());
-      kmh = gps.speed.kmph();
     }
+  }
+
+  // If no new GPS data for > 5 seconds, clear buffer
+  if (millis() - lastGpsValueMs > 5000) {
+    Serial.println("No fresh GPS data, clearing buffer...");
+    uart_flush_input(UART_NUM_1);
+    lastGpsValueMs = millis();
   }
 }
 
@@ -234,7 +247,10 @@ void setup() {
   esp_bt_controller_mem_release(ESP_BT_MODE_CLASSIC_BT);
 
   // GPS setup
-  ss.begin(9600);
+  gpsSerial.begin(9600, SERIAL_8N1, 5, 4); // RX=5, TX=4
+  
+  // clear RX buffer once at startup
+  uart_flush_input(UART_NUM_1);
 
   // Network setup
   connectWiFi();
