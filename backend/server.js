@@ -134,15 +134,25 @@ app.get("/rpm-data", authenticateToken, async (req, res) => {
 
     const pointLimit = 200;
     const fluxQuery = `
-      from(bucket: "${influxBucket}")
-        |> range(start: ${rangeWindow})
-        |> filter(fn: (r) => r._measurement == "data" and (r._field == "rpm" or r._field == "mac"))
-        |> pivot(rowKey: ["_time"], columnKey: ["_field"], valueColumn: "_value")
-        |> filter(fn: (r) => exists r.rpm and exists r.mac and r.mac == ${macInt})
-        |> keep(columns: ["_time", "rpm"])
-        |> sort(columns: ["_time"], desc: true)
-        |> limit(n: ${pointLimit})
-        |> sort(columns: ["_time"])
+      rpm = from(bucket: "${influxBucket}")
+  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)
+  |> filter(fn: (r) => r._measurement == "data" and r._field == "rpm")
+  |> rename(columns: {_value: "rpm"})
+  |> keep(columns: ["_time", "rpm"])
+
+      mac = from(bucket: "DB")
+  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)
+  |> filter(fn: (r) => r._measurement == "data" and r._field == "mac")
+  |> rename(columns: {_value: "mac"})
+  |> keep(columns: ["_time", "mac"])
+
+      join(
+  tables: {rpm: rpm, mac: mac},
+  on: ["_time"]
+      )
+  |> filter(fn: (r) => r.mac == ${macInt})
+  |> keep(columns: ["_time", "rpm"])
+  |> sort(columns: ["_time"])
     `;
 
     const points = [];
