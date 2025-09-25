@@ -17,17 +17,8 @@
         <ng-container *ngIf="!isLoading; else loadingState">
           <ng-container *ngIf="hasData; else emptyState">
             <div class="d-flex justify-content-between align-items-end mb-3">
-              <div>
-                <h5 class="text-uppercase small text-light opacity-75 mb-1">Aktuelle Drehzahl</h5>
-                <h2 class="fw-semibold">
-                  <ng-container *ngIf="latestRpm !== null; else rpmPlaceholder">
-                    {{ latestRpm | number:'1.0-0' }} RPM
-                  </ng-container>
-                </h2>
-                <ng-template #rpmPlaceholder>— RPM</ng-template>
-              </div>
               <div class="text-end subtitle">
-                0 – 7.000 RPM · Zeit in UTC
+                0 – 7.000 RPM 
               </div>
             </div>
 

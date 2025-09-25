@@ -141,7 +141,7 @@ app.get("/rpm-data", authenticateToken, async (req, res) => {
   |> keep(columns: ["_time", "rpm"])
 
       mac = from(bucket: "DB")
-  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)
+  |> range(start: -3d)
   |> filter(fn: (r) => r._measurement == "data" and r._field == "mac")
   |> rename(columns: {_value: "mac"})
   |> keep(columns: ["_time", "mac"])
