@@ -8,8 +8,8 @@ import { InfluxDB } from "@influxdata/influxdb-client";
 
 // Load environment variables
 dotenv.config();
-const host = process.env.MYSQL_HOST;
-const port = process.env.MYSQL_PORT;
+const host = "mariadb";
+const port = 3306;
 const database = process.env.MYSQL_DATABASE;
 const user = process.env.MYSQL_USER;
 const pw = process.env.MYSQL_PASSWORD;
