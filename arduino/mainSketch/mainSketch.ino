@@ -10,7 +10,6 @@
 // Libraries:
 // ELMDuino by PowerBroker2@3.4.1
 // ESP8266 Influxdb by Tobias Schürg@3.13.2
-// EspSoftwareSerial by Dirk Kaar@8.1.0
 // TinyGPSPlus by Mikal Hart@1.0.3
 
 #include <WiFi.h>
@@ -19,8 +18,6 @@
 #include <InfluxDbClient.h>
 #include <Arduino.h>
 #include <ELMduino.h>
-#include <HardwareSerial.h>
-#include "driver/uart.h"  // needed for uart_flush_input()
 #include <TinyGPS++.h>
 #include "secrets.h"
 #include "BLEClientSerial.h"
@@ -72,12 +69,10 @@ emyPxgcYxn/eR44/KJ4EBs+lVDR3veyJm+kXQ99b21/+jh5Xos1AnX5iItreGCc=
 BLEClientSerial BLESerial;
 ELM327 myELM327;
 TinyGPSPlus gps;
-HardwareSerial gpsSerial(1); // Use UART1
 
 // Die serielle Verbindung zum GPS Modul
-// ESP PIN 4 --> TX
-// ESP PIN 5 --> RX
-// SoftwareSerial ss(4, 5);
+// ESP PIN 16 --> TX (UART2_TX)
+// ESP PIN 17 --> RX (UART2_RX)
 
 // Zeitsync (für saubere Timestamps
 #define TZ_INFO "CET-1CEST,M3.5.0/2,M10.5.0/3"
@@ -191,9 +186,8 @@ void writeInitialDebugPoint() {
 }
 
 void readGPS() {
-  while (gpsSerial.available() > 0) {
-    Serial.println("B");
-    gps.encode(gpsSerial.read());
+  while (Serial2.available() > 0) {
+    gps.encode(Serial2.read());
     
     if (gps.location.isUpdated()) {
       lastGpsValueMs = millis();
@@ -211,13 +205,6 @@ void readGPS() {
       Serial.println(gps.location.lng(), 4);
       longitude = gps.location.lng();
     }
-  }
-
-  // If no new GPS data for > 5 seconds, clear buffer
-  if (millis() - lastGpsValueMs > 5000) {
-    Serial.println("No fresh GPS data, clearing buffer...");
-    uart_flush_input(UART_NUM_1);
-    lastGpsValueMs = millis();
   }
 }
 
@@ -247,11 +234,8 @@ void setup() {
   esp_bt_controller_mem_release(ESP_BT_MODE_CLASSIC_BT);
 
   // GPS setup
-  gpsSerial.begin(9600, SERIAL_8N1, 5, 4); // RX=5, TX=4
+  Serial2.begin(9600, SERIAL_8N1, 16, 17);// RX=17, TX=16
   
-  // clear RX buffer once at startup
-  uart_flush_input(UART_NUM_1);
-
   // Network setup
   connectWiFi();
 
