@@ -4,6 +4,7 @@ import bcrypt from "bcrypt";
 import bodyParser from "body-parser";
 import dotenv from "dotenv";
 import jwt from "jsonwebtoken";
+import { InfluxDB } from "@influxdata/influxdb-client";
 
 // Load environment variables
 dotenv.config();
@@ -13,9 +14,25 @@ const database = process.env.MYSQL_DATABASE;
 const user = process.env.MYSQL_USER;
 const pw = process.env.MYSQL_PASSWORD;
 const jwtSecret = process.env.JWT_SECRET;
+const influxUrl = process.env.INFLUX_URL;
+const influxToken = process.env.INFLUX_TOKEN;
+const influxOrg = process.env.INFLUX_ORG || process.env.INFLUXDB_ORG;
+const influxBucket = process.env.INFLUX_BUCKET || process.env.INFLUXDB_BUCKET;
 
 if (!jwtSecret) {
   throw new Error("JWT_SECRET environment variable is required");
+}
+
+if (!influxToken) {
+  throw new Error("INFLUX_TOKEN environment variable is required");
+}
+
+if (!influxOrg) {
+  throw new Error("INFLUX_ORG environment variable is required");
+}
+
+if (!influxBucket) {
+  throw new Error("INFLUX_BUCKET environment variable is required");
 }
 
 const app = express();
@@ -29,8 +46,35 @@ const pool = mysql.createPool({
   database: database
 });
 
+const influxQueryApi = new InfluxDB({ url: influxUrl, token: influxToken }).getQueryApi(influxOrg);
+
 const containsForbiddenCharacter = (value) => typeof value === "string" && value.includes(";");
 const hasUnsafeInput = (...values) => values.some(containsForbiddenCharacter);
+
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers["authorization"]; // Express normalizes header casing
+  const token = authHeader?.split(" ")[1];
+
+  if (!token) {
+    return res.status(401).json({ error: "Missing authorization token" });
+  }
+
+  jwt.verify(token, jwtSecret, (err, payload) => {
+    if (err || !payload?.id) {
+      return res.status(401).json({ error: "Invalid or expired token" });
+    }
+
+    req.user = payload;
+    next();
+  });
+};
+
+const isValidRange = (value) => {
+  if (typeof value !== "string") {
+    return false;
+  }
+  return /^-[0-9]+(m|h|d|w)$/.test(value.trim());
+};
 
 // Registrierung
 app.post("/register", async (req, res) => {
@@ -68,6 +112,59 @@ app.post("/login", async (req, res) => {
   const token = jwt.sign({ id: rows[0].id, username: rows[0].username }, jwtSecret, { expiresIn: "1h" });
 
   res.json({ message: "Login successful", token });
+});
+
+app.get("/rpm-data", authenticateToken, async (req, res) => {
+  try {
+    const [rows] = await pool.query("SELECT macInt FROM benutzer WHERE id = ?", [req.user.id]);
+
+    if (!rows.length) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const macIntRaw = rows[0].macInt;
+    const macInt = Number(macIntRaw);
+
+    if (!Number.isFinite(macInt)) {
+      return res.status(500).json({ error: "Invalid MAC stored for user" });
+    }
+
+    const requestedRange = req.query.range;
+    const rangeWindow = isValidRange(requestedRange) ? requestedRange : "-3d";
+
+    const pointLimit = 200;
+    const fluxQuery = `
+      from(bucket: "${influxBucket}")
+        |> range(start: ${rangeWindow})
+        |> filter(fn: (r) => r._measurement == "data" and (r._field == "rpm" or r._field == "mac"))
+        |> pivot(rowKey: ["_time"], columnKey: ["_field"], valueColumn: "_value")
+        |> filter(fn: (r) => exists r.rpm and exists r.mac and r.mac == ${macInt})
+        |> keep(columns: ["_time", "rpm"])
+        |> sort(columns: ["_time"], desc: true)
+        |> limit(n: ${pointLimit})
+        |> sort(columns: ["_time"])
+    `;
+
+    const points = [];
+    try {
+      for await (const { values, tableMeta } of influxQueryApi.iterateRows(fluxQuery)) {
+        const row = tableMeta.toObject(values);
+        const rpm = Number(row.rpm);
+        if (!Number.isFinite(rpm)) {
+          continue;
+        }
+        points.push({ time: row._time, rpm });
+      }
+    } catch (err) {
+      console.error("Failed to query InfluxDB:", err);
+      return res.status(500).json({ error: "Failed to query telemetry data" });
+    }
+
+    res.json({ points });
+  } catch (err) {
+    console.error("Failed to fetch RPM data:", err);
+    res.status(500).json({ error: "Failed to fetch RPM data" });
+  }
 });
 
 // Simple GET endpoint for testing
