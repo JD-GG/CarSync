@@ -177,9 +177,8 @@ app.get("/rpm-data", authenticateToken, async (req, res) => {
         const timestamp = now - i * 60 * 1000; // i minutes ago
         const rpm = Math.floor(Math.random() * (3000 - 800 + 1)) + 800;
         const point = new Point("data")
-          .tag("mac", String(macInt))
           .intField("rpm", rpm)
-          .floatField("mac", macInt)
+          .intField("mac", macInt)
           .timestamp(new Date(timestamp));
         fakePoints.push({ time: new Date(timestamp).toISOString(), rpm });
         influxWriteApi.writePoint(point);
