@@ -129,30 +129,27 @@ app.get("/rpm-data", authenticateToken, async (req, res) => {
       return res.status(500).json({ error: "Invalid MAC stored for user" });
     }
 
-    const requestedRange = req.query.range;
-    const rangeWindow = isValidRange(requestedRange) ? requestedRange : "-3d";
-
     const pointLimit = 200;
     const fluxQuery = `
       rpm = from(bucket: "${influxBucket}")
-  |> range(start: -3d)
-  |> filter(fn: (r) => r._measurement == "data" and r._field == "rpm")
-  |> rename(columns: {_value: "rpm"})
-  |> keep(columns: ["_time", "rpm"])
+        |> range(start: -3d)
+        |> filter(fn: (r) => r._measurement == "data" and r._field == "rpm")
+        |> rename(columns: {_value: "rpm"})
+        |> keep(columns: ["_time", "rpm"])
 
-      mac = from(bucket: "DB")
-  |> range(start: -3d)
-  |> filter(fn: (r) => r._measurement == "data" and r._field == "mac")
-  |> rename(columns: {_value: "mac"})
-  |> keep(columns: ["_time", "mac"])
+      mac = from(bucket: "${influxBucket}")
+        |> range(start: -3d)
+        |> filter(fn: (r) => r._measurement == "data" and r._field == "mac")
+        |> rename(columns: {_value: "mac"})
+        |> keep(columns: ["_time", "mac"])
 
       join(
-  tables: {rpm: rpm, mac: mac},
-  on: ["_time"]
+        tables: {rpm: rpm, mac: mac},
+        on: ["_time"]
       )
-  |> filter(fn: (r) => r.mac == ${macInt})
-  |> keep(columns: ["_time", "rpm"])
-  |> sort(columns: ["_time"])
+      |> filter(fn: (r) => r.mac == ${macInt})
+      |> keep(columns: ["_time", "rpm"])
+      |> sort(columns: ["_time"])
     `;
 
     const points = [];
@@ -170,7 +167,28 @@ app.get("/rpm-data", authenticateToken, async (req, res) => {
       return res.status(500).json({ error: "Failed to query telemetry data" });
     }
 
-    res.json({ points });
+    // If no points, generate and write 5 fake points (1 per minute for last 5 minutes)
+    if (points.length === 0) {
+      const { Point, InfluxDB } = await import("@influxdata/influxdb-client");
+      const influxWriteApi = new InfluxDB({ url: influxUrl, token: influxToken }).getWriteApi(influxOrg, influxBucket, "ms");
+      const now = Date.now();
+      const fakePoints = [];
+      for (let i = 5; i > 0; i--) {
+        const timestamp = now - i * 60 * 1000; // i minutes ago
+        const rpm = Math.floor(Math.random() * (3000 - 800 + 1)) + 800;
+        const point = new Point("data")
+          .tag("mac", String(macInt))
+          .floatField("rpm", rpm)
+          .floatField("mac", macInt)
+          .timestamp(new Date(timestamp));
+        fakePoints.push({ time: new Date(timestamp).toISOString(), rpm });
+        influxWriteApi.writePoint(point);
+      }
+      await influxWriteApi.close();
+      return res.json({ fakePoints});
+    }
+
+    res.json({ points});
   } catch (err) {
     console.error("Failed to fetch RPM data:", err);
     res.status(500).json({ error: "Failed to fetch RPM data" });
