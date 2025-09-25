@@ -1,30 +1,32 @@
 # CarSync Systemdokumentation
 
 ## Einleitung
-CarSync ist eine Vollstack-Lösung zur Erfassung, Speicherung und Visualisierung von Fahrzeugtelemetriedaten in Echtzeit. Das Herzstück bildet eine Angular-Weboberfläche, die Fahrern und Flottenmanagern eine übersichtliche Darstellung aller relevanten Kennzahlen bietet. Der aktuelle Inkrement konzentriert sich auf die sichere Erfassung von Motordrehzahlen (RPM) und die nutzerspezifische Aufbereitung in einem Dashboard. Da im Rahmen des Projektes keine offiziellen Spezifikationen vorlagen, wurde eine eigenständige Anforderungsanalyse durchgeführt. Das vorliegende Dokument fasst die Architekturentscheidungen, Implementierungsdetails sowie die gewonnenen Erkenntnisse aus Sicht der Entwicklung zusammen. Zielgruppe sind technische Stakeholder, die sich rasch ein umfassendes Bild des Systems verschaffen möchten – von der Infrastruktur über Backend- und Frontend-Komponenten bis hin zu Betriebshinweisen und Lessons Learned.
+CarSync ist eine Vollstack-Lösung zur Erfassung und Visualisierung von Fahrzeugtelemetriedaten über den CAN-Bus des Fahrzeugs. Die Nutzerschnittstelle bildet eine Angular-Weboberfläche, die Fahrern eine übersichtliche Darstellung aller relevanten Kennzahlen über einen bestimmten Zeitraum bietet. Der aktuelle Stand konzentriert sich auf die Erfassung von Motordrehzahlen (RPM) und die Aufbereitung dieser Daten in Abghängigkeit von der Zeit in einem Dashboard. Des weiteren werden über einen externen GPS Sensor Daten zur Position und Geschwindigkeit des Fahrzeugs im Backend gesammelt. Das vorliegende Dokument fasst die Architekturentscheidungen, Implementierungsdetails, die gewonnenen Erkenntnisse aus Sicht der Entwicklung und eine Reflexion zusammen. Zielgruppe sind technische Stakeholder und Entwickler, die sich ein umfassendes Bild des Systems verschaffen möchten – von der Infrastruktur über Backend- und Frontend-Komponenten bis hin zu Betriebshinweisen und Lessons Learned.
 
 ## Architektur
-Die Architektur folgt einem dienstebasierten Ansatz, der klar zwischen Datenerfassung, Speicherung, Veredelung und Darstellung unterscheidet. Der Fokus liegt auf modularen, leicht wartbaren Komponenten. Diese lassen sich unabhängig voneinander deployen, skalieren und weiterentwickeln, während definierte Schnittstellen eine konsistente Gesamtfunktionalität sicherstellen.
+Die Architektur folgt einem dienstebasierten Ansatz, der klar zwischen Datenerfassung, Speicherung, Verwaltung und Darstellung unterscheidet. Der Fokus liegt auf modularen, leicht wartbaren Komponenten. Diese lassen sich unabhängig voneinander deployen, skalieren und weiterentwickeln, während definierte Schnittstellen eine konsistente Gesamtfunktionalität sicherstellen.
 
 ### Allgemeiner Aufbau
-Die Lösung besteht aus vier Kernschichten: Datenpersistenz, Backend-Services, Frontend-Anwendung und Infrastruktur-Orchestrierung. Auf Persistenzebene kommen zwei spezialisierte Datenbanken zum Einsatz: MariaDB für Benutzerdaten sowie InfluxDB für Zeitreihentelemetrie. Die Backend-API agiert als Vermittlungsschicht. Sie authentifiziert Nutzer, validiert Anfragen, verknüpft Benutzerinformationen mit Messwerten und stellt optimierte Endpunkte bereit. Das Angular-Frontend bildet die Präsentationsschicht mit Fokus auf Nutzerführung und Visualisierung der Zeitreihen. Docker Compose orchestriert sämtliche Container und ermöglicht eine reproduzierbare Entwicklungs- wie auch Produktionsumgebung.
+Die Lösung besteht aus vier Kernschichten: Datenpersistenz, Backend-Services, Frontend-Anwendung und Infrastruktur-Orchestrierung. Auf Persistenzebene kommen zwei spezialisierte Datenbanken zum Einsatz: MariaDB für Benutzerdaten sowie InfluxDB für zeitbezogene Messdaten. Die Backend-API agiert als Vermittlungsschicht. Sie authentifiziert Nutzer, validiert Anfragen, autorisiert den Nutzer auf seine eigenen und nicht die anderer Fahrzeuge zuzugreifen und stellt dementsprechend Endpunkte bereit. Das Angular-Frontend bildet die Präsentationsschicht mit Fokus auf Visualisierung der Fahrzeugdaten über die Zeit. Docker Compose orchestriert dabei sämtliche Container und ermöglicht eine reproduzierbare Entwicklungs- wie auch Produktionsumgebung.
+
+![Architektur](Architektur.png)
 
 ### Architekturelle Entscheidungen
 Mehrere architekturrelevante Entscheidungen prägen das System:
 
-1. **Trennung von relationaler und Zeitreihendatenbank**: Benutzer-, Authentifizierungs- und Geräteinformationen sind stark relational geprägt. Telemetriedaten hingegen sind append-only, werden in hoher Frequenz produziert und benötigen effiziente Aggregation. Durch die Kombination von MariaDB und InfluxDB werden beide Zugriffsmuster optimal bedient. Alternative Ansätze, etwa alles in einer universellen Datenbank abzulegen, wurden verworfen, weil sie entweder die Schreibperformance (MariaDB) oder den Abfragekomfort (InfluxDB) beeinträchtigt hätten.
-2. **JWT-basierte Authentifizierung**: Statt auf Session-Cookies setzt CarSync auf kurzlebige JSON Web Tokens. Sie lassen sich leicht in Single-Page-Applications integrieren, sind unabhängig skalierbar und spielen gut mit API-Gateways zusammen. Die Entscheidung wurde getroffen, um auch zukünftige mobile Clients zu unterstützen. Nachteile wie die fehlende serverseitige Invalidierung werden durch begrenzte Lebenszeiten und optionale Blacklisting-Mechanismen entschärft.
-3. **Angular als Frontend-Framework**: Die Wahl fiel auf Angular, weil es klare Architekturkonventionen mitbringt (Module, Services, Guards) und durch die CLI einen produktiven Entwicklungs- und Build-Prozess ermöglicht. Angular erleichtert das Zusammenspiel mit TypeScript, womit strikte Typsicherheit und einheitlicher Code-Stil erreicht werden.
-4. **Containerisierung über Docker Compose**: Statt die Services direkt auf einem Host zu installieren, fasst Docker Compose alle Komponenten in isolierten Containern zusammen. So lassen sich Umgebungen schnell provisionieren, voneinander entkoppeln und reproduzierbar testen. Gerade bei einer verteilten Architektur reduziert dies Konfigurationsfehler.
+1. **Trennung von relationaler und Zeitreihendatenbank**: Benutzer-, Authentifizierungs- und Geräteinformationen sind stark relational geprägt. Telemetriedaten hingegen sind append-only, werden in hoher Frequenz produziert und benötigen effiziente Aggregation. Durch die Kombination von MariaDB und InfluxDB werden beide Zugriffsmuster optimal bedient. Diese Entscheidung basiert auf Untersuchungen in Benchmarks, die gezeigt haben, dass Timeseries Datenbanken wie InfluxDB für diesen Einsatzzweck die beste Option darstellen.[1]
+2. **Load-Balancing mit Nginx**: Um eine bessere Skalierbarkeit zu erreichen wurde der Einsatz von Nginx als Load-Balancer in die Architektur mitaufgenommen. Dieser soll mehrere Clients auf die verschiedenen physischen Server und Container Replikate verteilen.
+3. **Angular als Frontend-Framework**: Die Wahl fiel auf Angular, weil es klare Architekturkonventionen und wiederverwendbare Module mitbringt (Module, Services, Guards und UI Templates) bietet. Die CLI ermöglicht zudem einen produktiven Entwicklungs- und Build-Prozess. Angular erleichtert das Zusammenspiel mit TypeScript, womit strikte Typsicherheit und einheitlicher Code-Stil erreicht werden.
+4. **Containerisierung über Docker Compose**: Statt die Services direkt auf einem Host zu installieren, fasst Docker Compose alle Komponenten in isolierten Containern zusammen. So lassen sich Umgebungen schnell provisionieren, voneinander entkoppeln und reproduzierbar testen. Gerade bei einer verteilten Architektur reduziert dies Konfigurationsfehler. Von den Containern für Frontend und Backend-API bestehen zudem jeweils 3 replizierte Container um die Skalierbarkeit zu erhöhen.
 5. **Sicherheitsgateway im Backend**: Alle Zugriffe auf InfluxDB werden über den Node.js-Server geleitet. Diese Entscheidung schützt vor unautorisierten direkten Influx-Zugriffen, da Tokens nie an das Frontend durchgereicht werden. Gleichzeitig entsteht ein passender Aggregationspunkt, um Filterkriterien (z. B. MAC-Adresse) zentral zu erzwingen.
 
 ### Systemkomponenten
 Der Systementwurf umfasst die folgenden Komponenten, die über klar definierte Schnittstellen interagieren:
 
-- **Angular-Frontend**: Stellt Login-, Registrierungs- und Dashboardseiten bereit. Kommuniziert ausschließlich über die REST-API mit dem Backend. Übernimmt Visualisierung, Statusanzeigen sowie lokale Session-Verwaltung. Die Komponente `DashboardComponent` ist für das Rendering der RPM-Zeitreihe verantwortlich.
-- **Node.js/Express Backend**: Bietet Endpunkte für Registrierung, Login, Health-Check (`/ping`) und Telemetriedatenabruf (`/rpm-data`). Nutzerauthentifizierung und -autorisierung erfolgt mittels JWT, gespeicherte Passwörter werden via bcrypt gehasht. Es dient als BFF (Backend for Frontend) und kapselt die Logik zur Verbindung von Benutzern (MariaDB) und Messpunkten (InfluxDB).
-- **MariaDB**: Speichert Benutzerkonten, zugehörige gehashte Passwörter und die als Integer kodierte MAC-Adresse. Die Tabelle `benutzer` wird bei Startup automatisch provisioniert, sodass keine separaten Migrationsskripte notwendig sind.
-- **InfluxDB**: Verwaltet Telemetriedaten im Bucket `DB`. Für die Drehzahlen werden Messungen im Measurement `data` mit Feldern `_field=rpm` sowie `mac` abgelegt. Die Daten gelangen über externe Sensoren oder Simulationen in diese Datenbank; CarSync liest sie ausschließlich aus.
+- **Angular-Frontend**: Stellt Login-, Registrierungs- und Dashboardseiten bereit. Kommuniziert ausschließlich über die REST-API mit dem Backend. Übernimmt Visualisierung, Statusanzeigen sowie lokale Session-Verwaltung. Die Komponente `DashboardComponent` ist für die Visualisierung der Daten in einem Dashboard zuständig und ist erst nach erfolgtem Login erreichbar.
+- **Node.js/Express Backend**: Bietet Endpunkte für Registrierung, Login, Health-Check (`/ping`) und Messdatenabruf (`/rpm-data`). Nutzerauthentifizierung und -autorisierung erfolgt mittels JWT, gespeicherte Passwörter werden via bcrypt gehasht. Es dient als BFF (Backend for Frontend) und kapselt die Logik zur Verbindung von Benutzern (MariaDB) und Messpunkten (InfluxDB).
+- **MariaDB**: Speichert Benutzerkonten, zugehörige gehashte Passwörter und die als Integer kodierte MAC-Adresse des ESP32. Die Tabelle `benutzer` wird bei Startup automatisch provisioniert, sodass keine separaten Migrationsskripte notwendig sind.
+- **InfluxDB**: Verwaltet Telemetriedaten im Bucket `DB`. Für die Drehzahlen werden Messungen im Measurement `data` mit Feldern `_field=rpm` sowie `mac` abgelegt. Die Daten gelangen vom ESP32 Board mithilfe der ESP-Influx-Client Bibliothek in diese Datenbank.
 - **Docker Compose Infrastruktur**: Koordiniert die Container `backendCS`, `nginxCS` (für das ausgelieferte Angular Build), `influxdbCS`, `mariadbCS`, `adminerCS` und `grafanaCS`. Durch die gemeinsame Netzwerkkonfiguration können Services mit DNS-Namen (z. B. `mariadb`) aufeinander zugreifen.
 - **Optionale Tools**: Adminer erleichtert die Inspektion der MariaDB, Grafana dient als ergänzendes Analysewerkzeug für Influx. Diese Komponenten sind nicht zwingend für den Betrieb notwendig, unterstützen jedoch Diagnose- und Monitoringaufgaben.
 
@@ -89,17 +91,6 @@ Die Umsetzung folgt dem Prinzip „Backend for Frontend“ und nutzt bewährte B
    - Angular wird in einem separaten Bild gebaut und von NGINX ausgeliefert. Für Entwicklung kann parallel `ng serve` genutzt werden.
    - CI/CD ist noch nicht produktiv umgesetzt, aber Build-Skripte (z. B. `npm run build`) sind vorbereitet. Der Docker-Ansatz erlaubt, Build-Artefakte im Pipeline-System zu erzeugen und versioniert zu veröffentlichen.
 
-### Build- und Deployment-Prozess
-Obwohl das Projekt bislang manuell betrieben wird, existiert ein klar definierbarer Deployment-Ablauf:
-
-1. **Konfiguration prüfen**: Vor jedem Deployment werden `.env`-Parameter validiert. Dazu zählt insbesondere ein produktionsfähiger `JWT_SECRET` sowie ein auf Leserechte beschränktes `INFLUX_TOKEN`.
-2. **Container bauen**: Über `docker compose build` werden Backend und Frontend neu gebaut. Der Angular-Build produziert statische Assets, die im NGINX-Container landen.
-3. **Tests ausführen**: Derzeit beschränkt sich dies auf manuelle Checks (Linting ist vorgesehen). In Zukunft sollen Unit-Tests (`npm test`) und E2E-Szenarien integriert werden.
-4. **Orchestrieren**: `docker compose up -d` startet alle Services. Dank definierter `depends_on`-Beziehungen fährt Influx und MariaDB vor dem Backend hoch.
-5. **Smoke Tests**: Nach dem Hochfahren werden `/ping` sowie ein Login-Vorgang getestet. Für Telemetriedaten wird geprüft, ob das Dashboard valide Werte anzeigt.
-
-Dieser Prozess ist bewusst einfach gehalten, kann aber problemlos in Automatisierungstools (GitHub Actions, GitLab CI) überführt werden. Der Container-basierte Ansatz stellt sicher, dass Entwicklungs-, Test- und Produktionsumgebungen identisch sind.
-
 ### Schwierigkeiten und Lösungen
 Während der Umsetzung traten mehrere Herausforderungen auf:
 
@@ -151,3 +142,7 @@ Diese Perspektiven zeigen, dass die gewählte Architektur ausreichend Spielraum 
 
 ## Fazit
 Die CarSync-Lösung demonstriert, wie sich Zeitreihendaten aus IoT-Geräten sicher und nutzerzentriert aufbereiten lassen. Der modulare Architekturansatz ermöglicht eine graduelle Erweiterung: Denkbar sind zusätzliche Sensorfelder (Temperatur, Geschwindigkeit), Benachrichtigungssysteme oder ein umfangreicher Rechteverwaltungsdienst. Durch die Kombination von MariaDB und InfluxDB bleibt das System performant, während Angular eine moderne Nutzererfahrung bereitstellt. Die gemachten Erfahrungen liefern wertvolle Hinweise für zukünftige Iterationen – insbesondere im Hinblick auf Qualitätssicherung, Konfigurationsmanagement und Echtzeitfähigkeit.
+
+## Quellen
+
+[1] https://arxiv.org/pdf/2204.09795
