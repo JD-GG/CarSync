@@ -184,7 +184,7 @@ app.get("/rpm-data", authenticateToken, async (req, res) => {
         influxWriteApi.writePoint(point);
       }
       await influxWriteApi.close();
-      return res.json({ fakePoints});
+      return res.json({ points: fakePoints});
     }
 
     res.json({ points});
