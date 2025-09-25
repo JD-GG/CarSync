@@ -178,7 +178,7 @@ app.get("/rpm-data", authenticateToken, async (req, res) => {
         const rpm = Math.floor(Math.random() * (3000 - 800 + 1)) + 800;
         const point = new Point("data")
           .tag("mac", String(macInt))
-          .floatField("rpm", rpm)
+          .intField("rpm", rpm)
           .floatField("mac", macInt)
           .timestamp(new Date(timestamp));
         fakePoints.push({ time: new Date(timestamp).toISOString(), rpm });
