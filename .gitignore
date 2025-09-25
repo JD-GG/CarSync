@@ -425,4 +425,3 @@ angular/package-lock.json
 flake.lock
 secrets.h
 .DS_Store
-init.sql
