@@ -26,7 +26,7 @@ import { AuthService } from '../services/auth.service';
       </main>
 
       <footer class="py-4 text-center text-white-50 small">
-        Crafted with ❤️ for smooth fleet syncing
+        CarSync 2025
       </footer>
     </div>
   `,
