@@ -26,7 +26,7 @@ services:
       - MYSQL_USER=${MARIADB_USER}
       - MYSQL_PASSWORD=${MARIADB_PASSWORD}
     volumes:
-      - ./mariadb:/docker-entrypoint-initdb.d
+      - ./mariadb/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
       - mariadb_data:/var/lib/mysql
 
   nginx:
