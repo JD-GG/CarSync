@@ -135,7 +135,7 @@ app.get("/rpm-data", authenticateToken, async (req, res) => {
     const pointLimit = 200;
     const fluxQuery = `
       rpm = from(bucket: "${influxBucket}")
-  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)
+  |> range(start: -3d)
   |> filter(fn: (r) => r._measurement == "data" and r._field == "rpm")
   |> rename(columns: {_value: "rpm"})
   |> keep(columns: ["_time", "rpm"])
