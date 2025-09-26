@@ -2,10 +2,13 @@ import { Component } from '@angular/core';
 import { RouterModule } from '@angular/router';
 import { AuthService } from '../services/auth.service';
 
+// Root shell component that renders the main navigation and page layout.
+
 @Component({
   selector: 'app-root',
   standalone: true,
   imports: [RouterModule],
+  // Inline template builds a shell with header, outlet, and footer.
   template: `
     <div class="main-shell d-flex flex-column text-light">
       <header class="py-4">
@@ -42,8 +45,10 @@ import { AuthService } from '../services/auth.service';
   `]
 })
 export class AppComponent {
+  // AuthService lets the shell align nav links with the session state.
   constructor(private auth: AuthService) {}
 
+  // Expose the authentication state so the template can toggle nav links.
   isLoggedIn(): boolean {
     return this.auth.isAuthenticated();
   }

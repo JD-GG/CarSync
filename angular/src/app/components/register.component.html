@@ -1,10 +1,13 @@
+<!-- Registration form capturing login credentials and MAC address. -->
 <div class="auth-shell w-100 px-3">
   <div class="glass-card rounded-4 p-4 p-md-5 mx-auto">
+    <!-- Welcoming copy guiding new drivers through registration. -->
     <div class="text-center mb-4">
       <h2 class="fw-semibold mb-1">Account erstellen</h2>
       <p class="subtitle mb-0">Registriere dein Gerät und starte direkt durch</p>
     </div>
 
+    <!-- Form posts credentials and MAC binding back to the component. -->
     <form (ngSubmit)="onRegister()" class="d-flex flex-column gap-3">
       <div>
         <label for="register-username" class="form-label text-uppercase small">Username</label>
@@ -49,11 +52,13 @@
       </button>
     </form>
 
+    <!-- Shortcut for users who already linked their device. -->
     <p class="subtitle text-center mt-4 mb-0">
       Schon registriert?
       <a routerLink="/login" class="link-primary">Zum Login</a>
     </p>
 
+    <!-- Alert surfaces backend validation feedback. -->
     <div *ngIf="message" class="alert mt-4 mb-0" [ngClass]="message.includes('erfolgreich') ? 'alert-success' : 'alert-warning'">
       {{ message }}
     </div>

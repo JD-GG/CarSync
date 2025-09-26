@@ -5,6 +5,8 @@ import { Router } from '@angular/router';
 import { RouterModule } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
 
+// Login screen that delegates authentication to the shared AuthService.
+
 @Component({
   selector: 'app-login',
   standalone: true,
@@ -12,12 +14,14 @@ import { AuthService } from '../../services/auth.service';
   templateUrl: './login.component.html'
 })
 export class LoginComponent {
+  // Form-bound credential fields and feedback message.
   username = '';
   password = '';
   message = '';
 
   constructor(private auth: AuthService, private router: Router) {}
 
+  // Submit entered credentials and route the user to the dashboard on success.
   onLogin() {
     this.auth.login(this.username, this.password).subscribe({
       next: (response: any) => {

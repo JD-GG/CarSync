@@ -4,6 +4,8 @@ import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { finalize } from 'rxjs';
 import { AuthService } from '../../services/auth.service';
 
+// Dashboard view that pulls RPM samples and renders a lightweight SVG chart.
+
 @Component({
   selector: 'app-dashboard',
   standalone: true,
@@ -57,21 +59,25 @@ import { AuthService } from '../../services/auth.service';
 export class DashboardComponent implements OnInit {
   username = '';
 
+  // API endpoint and chart dimensions stay constant for the component lifetime.
   readonly apiUrl = '/api';
   readonly chartWidth = 1000;
   readonly chartHeight = 320;
   readonly maxRpm = 7000;
   readonly yTicks = Array.from({ length: 8 }, (_, i) => i * 1000);
 
+  // Collections powering the SVG chart and its helper dimensions.
   rpmData: number[] = [];
   timeLabels: string[] = [];
   chartPath = '';
   chartAreaPath = '';
   segmentWidth = this.chartWidth;
 
+  // UI state flags surfaced in the template.
   isLoading = false;
   errorMessage = '';
 
+  // Inject auth for credentials and HTTP for data transport.
   constructor(private auth: AuthService, private http: HttpClient) {}
 
   ngOnInit(): void {
@@ -79,24 +85,29 @@ export class DashboardComponent implements OnInit {
     this.fetchRpmData();
   }
 
+  // Provide the SVG viewBox dimensions for the template binding.
   get viewBox(): string {
     return `0 0 ${this.chartWidth} ${this.chartHeight}`;
   }
 
+  // Simplify template logic to check if samples exist.
   get hasData(): boolean {
     return this.rpmData.length > 0;
   }
 
+  // Show the latest RPM readout alongside the chart if available.
   get latestRpm(): number | null {
     return this.hasData ? this.rpmData[this.rpmData.length - 1] : null;
   }
 
+  // Convert an RPM value to its SVG Y coordinate.
   valueToY(value: number): number {
     const clamped = Math.max(0, Math.min(this.maxRpm, value));
     const ratio = clamped / this.maxRpm;
     return this.chartHeight - ratio * this.chartHeight;
   }
 
+  // Load the latest RPM history for the authenticated user.
   private fetchRpmData(): void {
     const token = this.auth.getToken();
 
@@ -135,6 +146,7 @@ export class DashboardComponent implements OnInit {
       });
   }
 
+  // Present timestamps in UTC so the chart reads consistently.
   private formatUtcLabel(timestamp: string): string {
     const date = new Date(timestamp);
     if (Number.isNaN(date.getTime())) {
@@ -149,6 +161,7 @@ export class DashboardComponent implements OnInit {
     }).format(date);
   }
 
+  // Translate the collected RPM points into reusable SVG paths.
   private computePaths(): void {
     if (!this.rpmData.length) {
       this.chartPath = '';

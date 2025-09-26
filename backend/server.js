@@ -1,3 +1,4 @@
+// Core dependencies to run the REST server, database access, and auth handling
 import express from "express";
 import mysql from "mysql2/promise";
 import bcrypt from "bcrypt";
@@ -6,7 +7,7 @@ import dotenv from "dotenv";
 import jwt from "jsonwebtoken";
 import { InfluxDB } from "@influxdata/influxdb-client";
 
-// Load environment variables
+// Populate environment variables so they are available throughout the process
 dotenv.config();
 const host = "mariadb";
 const port = 3306;
@@ -16,9 +17,10 @@ const pw = process.env.MYSQL_PASSWORD;
 const jwtSecret = process.env.JWT_SECRET;
 const influxUrl = process.env.INFLUX_URL;
 const influxToken = process.env.INFLUX_TOKEN;
-const influxOrg = process.env.INFLUX_ORG || process.env.INFLUXDB_ORG;
-const influxBucket = process.env.INFLUX_BUCKET || process.env.INFLUXDB_BUCKET;
+const influxOrg = process.env.INFLUX_ORG;
+const influxBucket = process.env.INFLUX_BUCKET;
 
+// Abort early if essential secrets or tokens are missing
 if (!jwtSecret) {
   throw new Error("JWT_SECRET environment variable is required");
 }
@@ -35,9 +37,11 @@ if (!influxBucket) {
   throw new Error("INFLUX_BUCKET environment variable is required");
 }
 
+// Prepare the Express instance and enable parsing of JSON request bodies
 const app = express();
 app.use(bodyParser.json());
 
+// Reusable MariaDB connection pool for all incoming requests
 const pool = mysql.createPool({
   port: port,
   host: host,
@@ -46,11 +50,14 @@ const pool = mysql.createPool({
   database: database
 });
 
+// InfluxDB client used for all query operations
 const influxQueryApi = new InfluxDB({ url: influxUrl, token: influxToken }).getQueryApi(influxOrg);
 
+// Quick guard against inputs that might try to smuggle raw SQL
 const containsForbiddenCharacter = (value) => typeof value === "string" && value.includes(";");
 const hasUnsafeInput = (...values) => values.some(containsForbiddenCharacter);
 
+// Middleware that expects a valid bearer token before allowing access
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers["authorization"]; // Express normalizes header casing
   const token = authHeader?.split(" ")[1];
@@ -69,6 +76,7 @@ const authenticateToken = (req, res, next) => {
   });
 };
 
+// Helper to ensure only supported time ranges make it into the Flux query
 const isValidRange = (value) => {
   if (typeof value !== "string") {
     return false;
@@ -76,7 +84,7 @@ const isValidRange = (value) => {
   return /^-[0-9]+(m|h|d|w)$/.test(value.trim());
 };
 
-// Registrierung
+// Create a new user, store the hashed password, and persist the MAC reference
 app.post("/register", async (req, res) => {
   const { username, password, mac } = req.body;
   if (!username || !password || !mac) return res.status(400).json({ error: "Missing data" });
@@ -97,7 +105,7 @@ app.post("/register", async (req, res) => {
   }
 });
 
-// Login
+// Authenticate a user and issue a short-lived JWT for subsequent requests
 app.post("/login", async (req, res) => {
   const { username, password } = req.body;
   if (!username || !password) return res.status(400).json({ error: "Missing data" });
@@ -114,6 +122,7 @@ app.post("/login", async (req, res) => {
   res.json({ message: "Login successful", token });
 });
 
+// Retrieve the user's RPM telemetry with users MAC from MariaDB
 app.get("/rpm-data", authenticateToken, async (req, res) => {
   try {
     const [rows] = await pool.query("SELECT macInt FROM benutzer WHERE id = ?", [req.user.id]);
@@ -130,6 +139,7 @@ app.get("/rpm-data", authenticateToken, async (req, res) => {
     }
 
     const pointLimit = 200;
+    // InfluxDB request for RPM datafrom user from the last 3 days. 
     const fluxQuery = `
       rpm = from(bucket: "${influxBucket}")
         |> range(start: -3d)
@@ -153,6 +163,7 @@ app.get("/rpm-data", authenticateToken, async (req, res) => {
     `;
 
     const points = [];
+    // Iterate over the Flux result stream without buffering everything in memory
     try {
       for await (const { values, tableMeta } of influxQueryApi.iterateRows(fluxQuery)) {
         const row = tableMeta.toObject(values);
@@ -167,7 +178,7 @@ app.get("/rpm-data", authenticateToken, async (req, res) => {
       return res.status(500).json({ error: "Failed to query telemetry data" });
     }
 
-    // If no points, generate and write 5 fake points (1 per minute for last 5 minutes)
+    // Seed a small set of demo data to keep dashboards alive when no telemetry exists yet
     if (points.length === 0) {
       const { Point, InfluxDB } = await import("@influxdata/influxdb-client");
       const influxWriteApi = new InfluxDB({ url: influxUrl, token: influxToken }).getWriteApi(influxOrg, influxBucket, "ms");
@@ -194,10 +205,9 @@ app.get("/rpm-data", authenticateToken, async (req, res) => {
   }
 });
 
-// Simple GET endpoint for testing
+// health check to verify the service responds
 app.get('/ping', (req, res) => {
   res.json({ message: 'pong' });
 });
 
 app.listen(3000, () => console.log("API running on port 3000"));
-

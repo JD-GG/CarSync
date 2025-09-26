@@ -6,6 +6,7 @@ import { AuthService } from '../../services/auth.service';
 import { NgxMaskDirective } from 'ngx-mask';
 
 
+// Registration screen that captures credentials plus a MAC address.
 @Component({
   selector: 'app-register',
   standalone: true,
@@ -14,13 +15,16 @@ import { NgxMaskDirective } from 'ngx-mask';
 })
 
 export class RegisterComponent {
+  // Bound form fields for credentials, MAC entry, and API feedback.
   username = '';
   password = '';
   message = '';
   mac = '';
 
+  // AuthService encapsulates the HTTP calls for account creation.
   constructor(private auth: AuthService) {}
 
+  // Forward the form data to the API and surface any feedback to the user.
   onRegister() {
     this.auth.register(this.username, this.password, this.mac).subscribe({
       next: () => this.message = 'Registrierung erfolgreich!',

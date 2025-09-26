@@ -1,5 +1,5 @@
 #include "BLEClientSerial.h"
-
+// external library from gitHub ELMduino
 static boolean doConnect = false;
 static boolean connected = false;
 static boolean doScan = false;

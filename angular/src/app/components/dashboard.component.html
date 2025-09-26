@@ -1,5 +1,7 @@
+<!-- Dashboard layout that visualises the fetched RPM history. -->
 <div class="container px-4 px-md-5 py-5 w-100">
   <div class="glass-card dashboard-card rounded-4 p-4 p-md-5">
+    <!-- Header summarises the driver's identity and system status. -->
     <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 mb-4">
       <div>
         <h1 class="display-5 fw-semibold mb-2">Willkommen {{ username }}!</h1>
@@ -22,6 +24,7 @@
               </div>
             </div>
 
+            <!-- Responsive SVG chart visualising RPM history. -->
             <div class="chart-wrapper">
               <svg [attr.viewBox]="viewBox" preserveAspectRatio="none" class="w-100 h-100" style="overflow: visible;">
                 <defs>
@@ -31,13 +34,16 @@
                   </linearGradient>
                 </defs>
 
+                <!-- Backdrop adds subtle contrast against the line graph. -->
                 <rect class="chart-bg" x="0" y="0" [attr.width]="chartWidth" [attr.height]="chartHeight"></rect>
 
+                <!-- Horizontal grid with RPM labels. -->
                 <g *ngFor="let tick of yTicks">
                   <line class="chart-grid-line" x1="0" [attr.y1]="valueToY(tick)" [attr.x2]="chartWidth" [attr.y2]="valueToY(tick)"></line>
                   <text class="tick-label" x="-10" [attr.y]="valueToY(tick) - 4" text-anchor="end">{{ tick | number:'1.0-0' }}</text>
                 </g>
 
+                <!-- Vertical grid tied to each recorded timestamp. -->
                 <g *ngFor="let label of timeLabels; let idx = index">
                   <line class="chart-grid-line" [attr.x1]="idx * segmentWidth"
                         [attr.y1]="0"
@@ -47,12 +53,15 @@
                         [attr.y]="chartHeight + 18" text-anchor="middle">{{ label }}</text>
                 </g>
 
+                <!-- Axes ground the chart to a fixed frame. -->
                 <line class="chart-axis" x1="0" [attr.y1]="chartHeight" [attr.x2]="chartWidth" [attr.y2]="chartHeight"></line>
                 <line class="chart-axis" x1="0" y1="0" x2="0" [attr.y2]="chartHeight"></line>
 
+                <!-- Paths render the filled area and the connecting polyline. -->
                 <path class="chart-shadow" [attr.d]="chartAreaPath"></path>
                 <path class="chart-line" [attr.d]="chartPath"></path>
 
+                <!-- Circles highlight each data point for clarity. -->
                 <g *ngFor="let value of rpmData; let idx = index">
                   <circle [attr.cx]="idx * segmentWidth"
                           [attr.cy]="valueToY(value)"
@@ -68,16 +77,19 @@
       </div>
     </div>
 
+    <!-- Warn the driver when no samples were returned for their session. -->
     <div *ngIf="!isLoading && errorMessage && !hasData" class="mt-4 alert alert-warning" role="alert">
       {{ errorMessage }}
     </div>
   </div>
 </div>
 
+<!-- Loading state keeps the layout steady while requesting data. -->
 <ng-template #loadingState>
   <div class="py-5 text-center subtitle">Lade aktuelle Werte…</div>
 </ng-template>
 
+<!-- Empty state covers missing RPM values or surfaced API errors. -->
 <ng-template #emptyState>
   <div class="py-5 text-center subtitle">{{ errorMessage || 'Keine RPM-Daten verfügbar.' }}</div>
 </ng-template>

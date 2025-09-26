@@ -1,10 +1,13 @@
+<!-- Login form collecting credentials and linking to registration. -->
 <div class="auth-shell w-100 px-3">
   <div class="glass-card rounded-4 p-4 p-md-5 mx-auto">
+    <!-- Onboarding copy sets the tone for returning drivers. -->
     <div class="text-center mb-4">
       <h2 class="fw-semibold mb-1">Willkommen zurück</h2>
       <p class="subtitle mb-0">Melde dich an, um deine Fahrzeuge zu verwalten</p>
     </div>
 
+    <!-- Template-driven form binds directly to the component fields. -->
     <form (ngSubmit)="onLogin()" class="d-flex flex-column gap-3">
       <div>
         <label for="login-username" class="form-label text-uppercase small">Username</label>
@@ -34,11 +37,13 @@
       </button>
     </form>
 
+    <!-- Gentle nudge toward registration for first-time visitors. -->
     <p class="subtitle text-center mt-4 mb-0">
       Noch keinen Account?
       <a routerLink="/register" class="link-primary">Jetzt registrieren</a>
     </p>
 
+    <!-- Reactive alert shows either success or failure feedback. -->
     <div *ngIf="message" class="alert mt-4 mb-0" [ngClass]="message.includes('erfolgreich') ? 'alert-success' : 'alert-warning'">
       {{ message }}
     </div>

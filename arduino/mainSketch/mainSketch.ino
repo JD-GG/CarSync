@@ -70,11 +70,11 @@ BLEClientSerial BLESerial;
 ELM327 myELM327;
 TinyGPSPlus gps;
 
-// Die serielle Verbindung zum GPS Modul
+// serial connection to GPS module
 // ESP PIN 16 --> TX (UART2_TX)
 // ESP PIN 17 --> RX (UART2_RX)
 
-// Zeitsync (für saubere Timestamps
+// timesync for timestamps
 #define TZ_INFO "CET-1CEST,M3.5.0/2,M10.5.0/3"
 
 // Influx-Client + Measurement-Point
@@ -82,12 +82,12 @@ InfluxDBClient client(INFLUXDB_URL, INFLUXDB_ORG, INFLUXDB_BUCKET, INFLUXDB_TOKE
 Point dataPoint("data"); // measurement name
 Point initPoint("init");
 
-// Intervall-Einstellungen
-const uint32_t INFLUX_INTERVAL_MS  = 1000;   // jede Sekunden Influx schreiben
+// Intervall-settings
+const uint32_t INFLUX_INTERVAL_MS  = 1000;   // write to InfluxDB each
 const uint32_t BLE_RETRY_MS        = 5000;
 const uint32_t ELM_RETRY_MS        = 5000;
 
-// Zustandsvariablen
+// state variables
 uint32_t lastInfluxMs   = 0;
 uint32_t lastBLETryMs   = 0;
 uint32_t lastELMTryMs   = 0;
@@ -196,11 +196,11 @@ void readGPS() {
         gpsReady = true;
       }
 
-      // Breitengrad mit 4 Nachkommastellen
+      // Breitengrad / latitude
       Serial.print("Breitengrad= ");
       Serial.print(gps.location.lat(), 4);
       latitude = gps.location.lat();
-      // Längengrad mit 4 Nachkommastellen
+      // Laengengrad / longitude
       Serial.print(" Längengrad= ");
       Serial.println(gps.location.lng(), 4);
       longitude = gps.location.lng();
@@ -209,7 +209,7 @@ void readGPS() {
 }
 
 void readRpm(){
-  if(!elmReady) return; // No bueno ohne ELM
+  if(!elmReady) return; // Not executing if ELM isn't ready
 
   float tempRPM = myELM327.rpm();
 
@@ -239,10 +239,10 @@ void setup() {
   // Network setup
   connectWiFi();
 
-  // Zeit synchronisieren (wichtig für TLS & Timestamps)
+  // Syncing time (important for TLS & Timestamps)
   timeSync(TZ_INFO, "pool.ntp.org", "0.pool.ntp.org");
 
-  // Mac-Adresse berechnen
+  // calculate Mac-Adress
   calcMacInt();
 
   // Log mac adress
@@ -251,7 +251,7 @@ void setup() {
   Serial.print("MAC as integer: ");
   Serial.println(macInt);
 
-  // Influx testen
+  // test InfluxDB connection
   if (client.validateConnection()) {
     Serial.print("Verbunden mit InfluxDB: ");
     Serial.println(client.getServerUrl());
@@ -266,31 +266,31 @@ void setup() {
 void loop() {
   const uint32_t now = millis();
 
-  // === WiFi sicherstellen ===
+  // Connect WiFi
   if (WiFi.status() != WL_CONNECTED) {
     connectWiFi();// Is infinite on purpose. No point in getting data w/o internet
   }
 
-  // === BLE init ===
+  // BLE init
   if (!bleConnected && now - lastBLETryMs >= BLE_RETRY_MS) {
     lastBLETryMs = now;
     connectBLE();
-    if (bleConnected) lastELMTryMs = 0; // nach erfolgreichem BLE neu versuchen ELM
+    if (bleConnected) lastELMTryMs = 0; // reset lastTry from ELM connection, after BLE connected
   }
 
-  // === ELM init ===
+  // ELM init
   if (bleConnected && !elmReady && now - lastELMTryMs >= ELM_RETRY_MS) {
     lastELMTryMs = now;
     initELM327();
   }
   
-  // === GPS Daten lesen ===
+  // read GPS Data
   readGPS(); // Executed every loop so that SerialBuffer is kept small
 
-  // === RPM OBD2 Daten lesen ===
+  // read RPM OBD2 data
   readRpm();
 
-  // === InfluxDB mit Werten versorgen wenn verhanden ===
+  // send data to InfluxDB if available
   if (WiFi.status() == WL_CONNECTED && now - lastInfluxMs >= INFLUX_INTERVAL_MS) {
     lastInfluxMs = now;
     writeToInflux();
