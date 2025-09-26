@@ -9,6 +9,7 @@ DHBW-Projekt verteilte Systeme von Luca Müller und Jan-David Oberländer
 
 ## Grafana
 Optional können vorgegebene dashboards importiert werden. (import von ./dashboards.json) Ohne tatsächliche Daten aber eher nutzlos.
+Configuriere Influx als datenquelle mit URL und Token. Query language: Flux
 
 ## Container
 Zur Verfügung stehen die folgenden Services:
