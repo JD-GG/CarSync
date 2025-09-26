@@ -43,45 +43,46 @@ Um die Zusammenarbeit der Komponenten greifbarer zu machen, wurden klare Schnitt
 Neben den technischen Schnittstellen existieren prozessuale Datenflüsse: Betriebslogs werden in der aktuellen Ausbaustufe lokal ausgegeben, können jedoch mithilfe von Docker-Logtreibern an zentrale Aggregatoren (Elastic, Loki) weitergeleitet werden. Alerts bei fehlgeschlagenen Flux-Abfragen werden derzeit manuell überwacht; ein Ausbau mit Prometheus und Alertmanager ist angedacht.
 
 ### Anforderungen
-Die Projektdokumentation basiert auf einer Kombination aus angenommenen Anforderungen (abgeleitet aus Gesprächen mit Stakeholdern) und technisch notwendigen Rahmenbedingungen.
 
 #### Funktionale Anforderungen
-- Benutzer können sich registrieren, wobei Benutzername, Passwort und Fahrzeug-MAC-Adresse erforderlich sind.
+- Benutzer können sich registrieren, wobei Benutzername, Passwort und ESP32-MAC-Adresse erforderlich sind.
 - Das System verifiziert Anmeldedaten und stellt bei Erfolg ein zeitlich begrenztes JWT zur Verfügung.
 - Auf dem Dashboard sieht ein angemeldeter Benutzer ausschließlich Telemetriedaten seines Fahrzeugs (Filterung auf MAC-Basis).
-- Der Telemetrieendpunkt `/rpm-data` liefert RPM-Werte samt Zeitstempel innerhalb eines vorgegebenen Zeitfensters (default -6h) und begrenzt die Anzahl der Messpunkte, um die Frontend-Performance zu sichern.
+- Der Telemetrieendpunkt `/rpm-data` liefert RPM-Werte samt Zeitstempel innerhalb eines vorgegebenen Zeitfensters (default -3d) und begrenzt die Anzahl der Messpunkte, um die Frontend-Performance zu sichern.
 - Sämtliche API-Aufrufe erfolgen über HTTPS (in der Produktionsumgebung durch vorgelagertes NGINX oder Load-Balancer bereitgestellt).
-- Telemetrie-Daten lassen sich optional in Drittwerkzeugen analysieren (Grafana).
+- Telemetrie-Daten lassen sich optional in einer Administrationsoberfläche verwalten (Grafana).
+- Der ESP32 verbindet sich automatisch mit dem OBDII Adapter und dem WLAN auch nach verbindungsabbruch
+- Es werden kontinuierlich und in bestimmten Zeitabständen Daten vom CAN-Bus des Fahrzeugs gelesen.
 
 #### Nichtfunktionale Anforderungen
-- **Sicherheit**: Passwörter werden gehasht, Tokens sind kurzlebig, direkte DB-Zugriffe vom Client sind untersagt. Flux-Queries validieren Filterkriterien, um Noisy Neighbor-Effekte zu verhindern.
+- **Sicherheit**: Passwörter werden gehasht, Tokens sind kurzlebig, direkte DB-Zugriffe vom Client sind untersagt. Flux-Queries validieren Filterkriterien, um Noisy Neighbor-Effekte zu verhindern. Die Eingabefelder sind gegen SQL-Injection Angriffe gesichert
 - **Performanz**: Zeitreihenzugriffe dürfen auch bei hoher Datenrate innerhalb von Sekunden antworten. Durch Limits und serverseitige Filter bleibt die Antwortgröße kontrollierbar.
 - **Skalierbarkeit**: Komponenten können unabhängig voneinander repliziert werden. InfluxDB unterstützt horizontale Skalierung, das Backend lässt sich hinter einem Load-Balancer betreiben.
-- **Wartbarkeit**: Strikte Trennung von Verantwortlichkeiten, Verwendung etablierter Frameworks und klar benannter Env-Variablen vereinfachen Betrieb und Weiterentwicklung.
-- **Beobachtbarkeit**: Durch Health-Checks und Logging im Backend können Fehlermodi schnell erkannt werden. Adminer und Grafana unterstützen Diagnose.
-- **Portabilität**: Docker Compose garantiert konsistente Umgebungen. Entwickler können die gleiche Infrastruktur lokal nutzen wie auf Testsystemen.
-- **Internationalisierung**: Auch wenn die aktuelle UI deutschsprachig ist, wurde auf eine flexible Formatierung (z. B. `Intl.DateTimeFormat`) geachtet, sodass weitere Sprachen ohne tiefgreifende Codeänderungen ergänzt werden können.
-- **Erweiterbarkeit**: Architektur und Code basieren auf Schnittstellen, die zusätzliche Sensorfelder (Öltemperatur, Geschwindigkeit) erlauben. Die Flux-Queries lassen sich um weitere Felder erweitern, ohne die bestehende Logik zu brechen.
-- **Resilienz**: Bei Ausfällen einzelner Komponenten (z. B. InfluxDB) sollen Benutzer eine klare Fehlermeldung erhalten, während der Rest der Anwendung funktionsfähig bleibt. Zeitkritische Funktionen wie Login dürfen nicht von der Telemetriedatenbank abhängen.
+- **Wartbarkeit**: Strikte Trennung von Verantwortlichkeiten, Verwendung etablierter Frameworks und klar definierter Env-Variablen vereinfachen Betrieb und Weiterentwicklung.
+- **Beobachtbarkeit**: Durch Health-Checks und Logging im Backend können Fehlermodi schnell erkannt werden. Adminer und Grafana zur Unterstützung der Diagnose.
+- **Portabilität**: Verwendung von Docker Compose um konsistente Umgebungen zu garantieren. Entwickler können die gleiche Infrastruktur lokal nutzen wie auf Testsystemen.
+- **Internationalisierung**: Auch wenn die geplante UI deutschsprachig ist, wurde auf eine flexible Formatierung (z. B. `Intl.DateTimeFormat`) geachtet, sodass weitere Sprachen ohne tiefgreifende Codeänderungen ergänzt werden können.
+- **Erweiterbarkeit**: Architektur und Code basieren auf Schnittstellen und Bibliotheken wie ELMduino, die es erlauben zusätzliche Sensorfelder (Öltemperatur, Geschwindigkeit) auszulesen. Die Flux-Queries lassen sich um weitere Felder erweitern, ohne die bestehende Logik zu brechen.
+- **Resilienz**: Bei Ausfällen einzelner Komponenten (z. B. InfluxDB) bekommen Benutzer eine klare Fehlermeldung erhalten, während der Rest der Anwendung funktionsfähig bleibt.
 
 ## Umsetzung
-Dieser Abschnitt beschreibt die konkrete Implementierung der Architekturhinweise und legt die getroffenen technischen Maßnahmen dar.
+Dieser Abschnitt beschreibt die konkrete Implementierung der Architektur und legt die getroffenen technischen Maßnahmen dar.
 
 ### Implementierung der Architektur
-Die Umsetzung folgt dem Prinzip „Backend for Frontend“ und nutzt bewährte Bibliotheken.
+Die Umsetzung folgt dem Prinzip „Backend for Frontend“.
 
 1. **Backend-Service (`backend/server.js`)**
    - Initialisiert Umgebungsvariablen via `dotenv`. Wird ein kritischer Parameter (z. B. `JWT_SECRET`, `INFLUX_TOKEN`) nicht gesetzt, beendet der Prozess den Startvorgang, um Fehlkonfigurationen früh zu erkennen.
-   - Erstellt einen MariaDB Connection Pool mittels `mysql2/promise`. SQL-Injektionen werden durch Prepared Statements verhindert. Zusätzlich wird der Input auf verbotene Zeichen (derzeit Semikolon) geprüft.
-   - Implementiert die Endpunkte `/register` (Schreiben neuer Benutzer), `/login` (Token-Ausgabe), `/rpm-data` (geschützter Telemetrieabruf). Für `/rpm-data` wird nach erfolgreicher JWT-Prüfung ein Flux-Query erstellt, das beide Felder (`rpm`, `mac`) pivotiert. Durch das Pivot entsteht eine zeilenorientierte Sicht, sodass Filter auf `mac` möglich sind und gleichzeitig nur die gewünschten Felder erhalten bleiben.
-   - Nutzt die offizielle `@influxdata/influxdb-client` Bibliothek. Die Abfrage basiert auf einem asynchronen Cursor (`iterateRows`), wodurch Memoryverbrauch konstant bleibt, auch wenn viele Datenpunkte vorliegen.
-   - Enthält eine einfache Health-Route `/ping` sowie eine Initialisierungsroutine `ensureTable`, die bei Bedarf die Users-Tabelle anlegt.
+   - Erstellt einen MariaDB Connection Pool mittels `mysql2/promise`. SQL-Injektionen werden durch Input Validation verhindert. Zusätzlich wird der Input auf verbotene Zeichen (derzeit Semikolon) geprüft.
+   - Implementiert die Endpunkte `/register` (Schreiben neuer Benutzer), `/login` (Token-Ausgabe), `/rpm-data` (geschützter Telemetrieabruf). Für `/rpm-data` wird nach erfolgreicher JWT-Prüfung ein Flux-Query erstellt, das beide Felder (`rpm`, `mac`) für die dem Nutzer zugeordnete MAC abfragt. Durch das Filtern der MAC-Adresse ist sichergestellt, dass der Nutzer nur die Daten erhält, die auch zu ihm gehören.
+   - Nutzt die offizielle `@influxdata/influxdb-client` Bibliothek. Die Abfrage basiert auf einem asynchronen Cursor (`iterateRows`), wodurch der Memoryverbrauch konstant bleibt, auch wenn viele Datenpunkte vorliegen.
+   - Enthält eine einfache Health-Route `/ping` sowie eine Initialisierungsroutine `ensureTable`, die bei Bedarf, also bei Erstinitialisierung die benutzer-Tabelle anlegt.
    - Verwendet strukturierte Logging-Statements für kritische Pfade (z. B. gescheiterte Influx-Anfragen). Diese Logs dienen sowohl der Fehlersuche als auch der Auditierbarkeit.
 
 2. **Frontend (Angular)**
    - Die Anwendung wurde als Standalone-Angular-Projekt (Angular 20) aufgebaut. Komponenten sind standalone (`standalone: true`), wodurch auf die traditionelle Modulstruktur verzichtet werden kann.
    - Der `AuthService` verwaltet Login, Registrierung und LocalStorage-gestützte Sessions. Er kapselt die HTTP-Aufrufe und stellt Hilfsmethoden wie `getToken`, `getUsername` bereit.
-   - `DashboardComponent` lädt einmalig beim `ngOnInit` die Telemetrie. Die Antwort des Backends wird in `rpmData` (Zahlenwerte) und `timeLabels` (formatierte Uhrzeiten) überführt. SVG-Pfade `chartPath` und `chartAreaPath` werden dynamisch berechnet, sodass die Darstellung flexibel auf beliebige Datenmengen reagieren kann.
+   - `DashboardComponent` lädt einmalig beim `ngOnInit` die Messdaten. Die Antwort des Backends wird in `rpmData` (Zahlenwerte) und `timeLabels` (formatierte Uhrzeiten) überführt. SVG-Pfade `chartPath` und `chartAreaPath` werden dynamisch berechnet, sodass die Darstellung flexibel auf beliebige Datenmengen reagieren kann.
    - Die HTML-Vorlage bleibt bewusst deklarativ: Ladezustände, Fehlerhinweise und das Diagramm werden über Angular-Strukturen (`ng-container`, `ngIf`) gesteuert. Die eigentliche Visualisierung beruht auf native SVG-Elemente statt auf externe Charting-Bibliotheken, um die Kontrolle über Darstellung und Performance zu behalten.
    - Schutzmechanismen (Route Guards) verhindern, dass nicht authentifizierte Nutzer auf das Dashboard zugreifen.
 
@@ -94,10 +95,11 @@ Die Umsetzung folgt dem Prinzip „Backend for Frontend“ und nutzt bewährte B
 ### Schwierigkeiten und Lösungen
 Während der Umsetzung traten mehrere Herausforderungen auf:
 
-- **MAC-Adressformatierung**: MariaDB speichert die MAC des Fahrzeugs als Integer (`macInt`). InfluxDB hingegen enthält das Feld `mac` als numerischen Wert. Deshalb musste sichergestellt werden, dass bei der Registrierung eine konsistente Hex-zu-Integer-Konvertierung erfolgt (`parseInt` mit Präfix `0x`). Ebenso prüft der Telemetrie-Endpunkt streng auf numerische Werte und behandelt unplausible Eingaben als Fehler.
-- **Flux-Query-Design**: InfluxDB speichert jede Messung als separate Zeile mit `_field`. Um `mac` und `rpm` gemeinsam auswerten zu können, wird ein `pivot` benötigt. Erst das Pivot erlaubt den Vergleich `r.mac == ${macInt}` und das gleichzeitige Beibehalten des RPM-Wertes. Die Query musste iterativ optimiert werden, um nur relevante Spalten (`_time`, `rpm`) zu behalten und die Ergebnismenge (`limit`) zu kontrollieren.
+- **Bluetooth-Verbindung**: Zu Beginn war es nicht möglich mit dem Standard Bluetooth Protokol eine Verbindung zwischen OBDII Adapter und ESP32 herzustellen. Dies konnte dann nach zahlreichen Tests durch Bluetooth Low Energy ersetzt werden. Dies war möglich durch eine BLE Serial Wrapper Bibliothek, die von einem Community Mitglied der ELMduino Bibliothek bereitgestellt wurde
+- **MAC-Adressformatierung**: MariaDB speichert die MAC des ESPs als Integer (`macInt`). InfluxDB hingegen enthält das Feld `mac` als numerischen Wert. Deshalb musste sichergestellt werden, dass bei der Registrierung eine konsistente Hex-zu-Integer-Konvertierung erfolgt (`parseInt` mit Präfix `0x`). Ebenso prüft der Telemetrie-Endpunkt streng auf numerische Werte und behandelt unplausible Eingaben als Fehler.
+- **CAN-Bus OBD Buffer**: Da der Buffer schneller mit Daten vollgeschrieben wurde als er wieder entleert wurde, waren über lange Messperioden immer nur die selben Werte sichtbar obwohl sich diese längst ändern hätten müssen. Ein leeren des Buffers nach jedem loop konnte dieses Problem beheben.
+- **Flux-Query-Design**: InfluxDB speichert jede Messung als separate Zeile mit `_field`. Um `mac` und `rpm` gemeinsam auswerten zu können, wird ein `pivot` benötigt. Erst das Pivot erlaubt den Vergleich `r.mac == ${macInt}` und das gleichzeitige Beibehalten des RPM-Wertes. Die Query musste iterativ optimiert werden, um nur relevante Spalten (`_time`, `rpm`) zu behalten und die Ergebnismenge (`limit`) zu kontrollieren. Zusätzlich verursachte der Einsatz von pivot einen Absturz des Raspberry Servers, da die Ausführung dieser Influx Query sehr viel RAM benötigt. Die Query Struktur musste daher zum Schluss noch einmal neu gedacht werden.
 - **Token-Handling im Frontend**: Da Angular standardmäßig keine globalen HTTP-Interceptors konfiguriert hatte, musste der Token-Header in der `DashboardComponent` explizit gesetzt werden. Dabei wurde bewusst eine schlanke Lösung gewählt, um die Komplexität nicht zu erhöhen. Für zukünftige Erweiterungen bietet sich ein Interceptor an.
-- **Umgang mit fehlenden Linting-Regeln**: Das Angular-Projekt enthielt zwar ein `npm run lint` Script, jedoch kein konfiguriertes Ziel. Statt das Build zu blockieren, wurde die Fehlermeldung dokumentiert und als Nachbesserungsoption festgehalten. Bei Bedarf kann `angular-eslint` via `ng add` nachgezogen werden.
 - **Asynchrone Fehlerbehandlung**: Sowohl die Influx-Abfrage als auch die Datenverarbeitung können scheitern (fehlende Daten, Timeouts). Das Backend loggt diese Fälle und sendet generische Fehlermeldungen („Failed to query telemetry data“), ohne sensible Informationen preiszugeben. Das Frontend reagiert darauf mit nutzerfreundlichen Hinweisen.
 
 ### Mögliche Alternativen
@@ -114,8 +116,8 @@ Der Rückblick auf das Projekt beleuchtet strategische Erkenntnisse sowie konkre
 
 ### Was würde man nach dem Projekt anders machen?
 - **Frühzeitige Linting- und Teststrategie**: Obwohl die Architektur sauber strukturiert ist, fehlt es an automatisierten Qualitätschecks. In einer nächsten Iteration würde von Anfang an `angular-eslint`, `Jest` oder `Vitest` sowie Integrationstests für das Backend etabliert, um Regressionen vorzubeugen.
-- **Konfigurationsmanagement vereinheitlichen**: Aktuell verteilt sich die Konfiguration auf `.env`, `docker-compose.yml` und Hardcodings (z. B. Default-Range `-6h` im Code). Ein dediziertes Config-Modul oder ein zentraler Secrets-Manager (Vault, SSM) würde Klarheit schaffen. Ebenso sollte das Logging strukturierter (JSON Logs) gestaltet werden.
-- **Token-Erneuerung/Refresh**: Der Login generiert Tokens mit einer Laufzeit von einer Stunde. Ein Refresh-Mechanismus fehlt bewusst. Für produktiven Einsatz wäre es sinnvoll, einen Refresh-Token-Flow oder eine automatische Verlängerung einzuführen, um die Benutzererfahrung zu verbessern.
+- **Konfigurationsmanagement vereinheitlichen**: Aktuell verteilt sich die Konfiguration auf `.env`, `docker-compose.yml` und Hardcodings (z. B. Default-Range `-3d` im Code). Ein dediziertes Config-Modul oder ein zentraler Secrets-Manager (Vault, SSM) würde Klarheit schaffen. Ebenso sollte das Logging strukturierter (JSON Logs) gestaltet werden.
+- **Token-Erneuerung/Refresh**: Der Login generiert Tokens mit einer Laufzeit von einer Stunde. Ein Refresh-Mechanismus fehlt. Für produktiven Einsatz wäre es sinnvoll, einen Refresh-Token-Flow oder eine automatische Verlängerung einzuführen, um die Benutzererfahrung zu verbessern.
 - **CI/CD Pipeline**: Die Projektdateien enthalten noch keine Build-Pipeline. Bei einem erneuten Start würde zuerst eine CI/CD-Kette aufgebaut werden (Lint, Tests, Build, Deploy), um Feedbackzyklen zu verkürzen.
 - **Datenvalidierung zentralisieren**: Inputvalidierungen sind aktuell in mehreren Dateien verstreut. Eine zentrale Validierungsschicht (z. B. `zod`, `joi`) würde Lesbarkeit und Wartbarkeit erhöhen.
 
@@ -130,12 +132,12 @@ Der Rückblick auf das Projekt beleuchtet strategische Erkenntnisse sowie konkre
 Aus betrieblicher Sicht zeigte sich, dass die Überwachung von Zeitreihensystemen spezielle Aufmerksamkeit benötigt. InfluxDB reagiert sensibel auf falsch konfigurierte Queries (z. B. fehlende Limits). Deshalb wurde ein Review-Prozess etabliert, bei dem Flux-Abfragen vor der Produktivsetzung evaluiert werden. Ebenso wird empfohlen, das Telemetrievolumen in synthetischen Tests nachzubilden, um Engpässe frühzeitig zu erkennen.
 
 ## Ausblick
-Der aktuelle Funktionsumfang legt das Fundament einer verlässlichen Telemetrieplattform. Die Roadmap sieht mehrere Ausbaupfade vor:
+Der aktuelle Funktionsumfang legt das Fundament einer verlässlichen CAN-Bus Datenplattform. Die Roadmap sieht mehrere Ausbaupfade vor:
 
 - **Erweiterte Sensordatenerfassung**: Neben RPM sollen weitere Messgrößen (Öltemperatur, Batterieladung, Reifendruck) gesammelt werden. Das Backend muss dafür generische Filterlogik und Aggregationen bereitstellen, während das Frontend flexible Visualisierungen (Multi-Axis-Charts, Kachelübersichten) erhält.
 - **Regelbasiertes Monitoring**: Schwellenwerte und Anomalien sollen definierbar sein. Eine Regel-Engine könnte bei Überschreiten automatisierte Benachrichtigungen (E-Mail, Push) auslösen. Dazu bedarf es eines Notification-Services und einer Historisierung von Regelereignissen.
 - **Rollen- und Rechtekonzept**: Für Flottenmanager mit mehreren Fahrzeugen wird ein fein granuliertes Berechtigungssystem benötigt. Vorstellbar ist eine Hierarchie aus Organisationen, Fahrzeuggruppen und individuellen Nutzern, ergänzt durch RBAC-Tabellen in MariaDB.
-- **Offline-Fähigkeit und Mobile Apps**: Eine Progressive Web App (PWA) oder native Anwendungen könnten Telemetriedaten auch bei instabiler Verbindung cachen und synchronisieren. Dafür müsste die API offlinefreundliche Endpunkte (Delta-Sync) anbieten.
+- **Offline-Fähigkeit und Mobile Apps**: Eine Progressive Web App (PWA) oder eine Speicherkarte am ESP könnten Messdaten auch bei instabiler Verbindung cachen und synchronisieren. Dafür müsste die API offlinefreundliche Endpunkte (Delta-Sync) anbieten.
 - **Automatisiertes Qualitätsmanagement**: Kontinuierliche Tests, Security-Scans und statische Analysen sollen automatisiert in den Pipeline-Fluss integriert werden. Infrastructure-as-Code (z. B. Terraform) würde zudem den Betrieb über Docker Compose hinaus professionalisieren.
 
 Diese Perspektiven zeigen, dass die gewählte Architektur ausreichend Spielraum für zukünftige Schritte lässt, ohne grundlegende Migrationen erzwingen zu müssen.
