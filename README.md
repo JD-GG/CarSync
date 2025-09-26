@@ -22,3 +22,6 @@ Ports und Benutzernamen bitte der .env entnehmen.
 
 ## Arduino / ESP32
 Es wird ein ESP32 benötigt, um via BLE eine Verbindung zu dem ELM327 aufzubauen. Der ELM327 ist einer der verbreitesten Chips, wenn es um Bluetooth OBDII-Scanner geht. Der Hauptsketch befindet sich in ./arduino/mainSketch/mainSketch.ino. Dort sind zusätzliche Anweisungen vorhanden. Im selben Verzeichnis muss sich eine secrets.h befinden. Der Sketch muss derzeit mit der Arduino-IDE gebaut werden. 
+
+### GPS-Modul
+Verwendet wurde ein Aideepen GPS-Modul Positionsmodul (https://www.amazon.de/dp/B08CZSL193)
